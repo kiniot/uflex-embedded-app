@@ -142,6 +142,7 @@ Modern versions of CLion manage PlatformIO natively through its embedded develop
 3.  It is highly recommended to configure the **Run Configuration** interface to easily switch between compilation and uploading operations. To do this:
     * Click on the execution target dropdown menu located in the top-right toolbar and select **Edit Configurations...**.
     * Ensure you have entry options mapped to the PlatformIO environment. You can verify a configuration targeting `PlatformIO Build` for checking code syntax, and another one targeting `PlatformIO Upload` to compile and flash the compiled binary into the ESP32 hardware via USB-C.
+
     ![CLion Run Configuration](assets/env-setup/clion-run-configuration.png)
 
 ---

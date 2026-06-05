@@ -142,6 +142,7 @@ Las versiones modernas de CLion gestionan PlatformIO de forma nativa a través d
 3.  Se recomienda encarecidamente configurar la interfaz de **Run Configuration** para alternar fácilmente entre las operaciones de compilación y carga. Para hacer esto:
     * Haz clic en el menú desplegable de objetivos de ejecución situado en la barra de herramientas superior derecha y selecciona **Edit Configurations...**.
     * Asegúrate de tener opciones mapeadas al entorno de PlatformIO. Puedes verificar una configuración que apunte a `PlatformIO Build` para comprobar la sintaxis del código, y otra que apunte a `PlatformIO Upload` para compilar y flashear el binario en el hardware del ESP32 a través de USB-C.
+    
     ![Configuración de Arranque en CLion](assets/env-setup/clion-run-configuration.png)
 
 ---
