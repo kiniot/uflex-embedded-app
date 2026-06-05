@@ -1,0 +1,22 @@
+### PlatformIO ###
+.pio/
+.clang_complete
+.gcc-flags.json
+.bindings
+bin/
+build/
+
+### JetBrains IDEs ###
+.idea/
+cmake-build-*/
+CMakeLists.txt
+
+### VS Code ###
+.vscode/
+!.vscode/extensions.json
+
+### OS ###
+.DS_Store
+Thumbs.db
+*.bak
+*.tmp
