@@ -1,4 +1,8 @@
 [wokwi]
 version = 1
-firmware = '.pio/build/esp32dev/firmware.bin'
-elf = '.pio/build/esp32dev/firmware.elf'
+firmware = '.pio/build/esp32_sim/firmware.bin'
+elf = '.pio/build/esp32_sim/firmware.elf'
+
+[[chip]]
+name = 'tca9548a'
+binary = 'chips/tca9548a/dist/tca9548a.chip.wasm'
