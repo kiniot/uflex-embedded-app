@@ -1,0 +1,31 @@
+{
+  "name": "tca9548a",
+  "author": "uFlex",
+  "pins": [
+    "VCC",
+    "GND",
+    "A0",
+    "A1",
+    "RESET",
+    "SD0",
+    "SC0",
+    "SD1",
+    "SC1",
+    "SD2",
+    "SC2",
+    "SD3",
+    "SC3",
+    "SD4",
+    "SC4",
+    "SD5",
+    "SC5",
+    "SD6",
+    "SC6",
+    "SD7",
+    "SC7",
+    "A2",
+    "SCL",
+    "SDA"
+  ],
+  "controls": []
+}
