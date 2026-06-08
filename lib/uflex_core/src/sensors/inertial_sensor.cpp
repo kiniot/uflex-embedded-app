@@ -6,7 +6,7 @@
  * @file inertial_sensor.cpp
  * @brief Implements the InertialSensor class.
  *
- * @author Salim Ramirez Mestanza
+ * @author Salim Ramirez
  * @date June 8, 2026
  * @version 0.1.0
  */

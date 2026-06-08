@@ -6,7 +6,7 @@
  * @file relative_angle_calculator.cpp
  * @brief Implements relative angle calculations for inertial samples.
  *
- * @author Salim Ramirez Mestanza
+ * @author Salim Ramirez
  * @date June 8, 2026
  * @version 0.1.0
  */

@@ -6,7 +6,7 @@
  * @file uflex_device.cpp
  * @brief Implements the UflexDevice class.
  *
- * @author Salim Ramirez Mestanza
+ * @author Salim Ramirez
  * @date June 8, 2026
  * @version 0.1.0
  */
