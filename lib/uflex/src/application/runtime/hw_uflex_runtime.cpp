@@ -1,0 +1,48 @@
+//
+// Created by Salim Ramirez Mestanza on 8/06/26.
+//
+
+#include "uflex/application/runtime/hw_uflex_runtime.h"
+
+#include <Arduino.h>
+
+/**
+ * @file hw_uflex_runtime.cpp
+ * @brief Implements the hardware runtime for uFlex.
+ *
+ * This runtime prepares the buses intended for the physical-device target and
+ * delegates sensor initialization and updates to the MPU9250 hardware adapter.
+ * The structure is ready for integration while final behavior still depends on
+ * validation with the real board and wiring.
+ *
+ * @author Salim Ramirez
+ * @date June 8, 2026
+ * @version 0.1.0
+ */
+
+HwUflexRuntime::HwUflexRuntime()
+    : device({0, 0x68}, {1, 0x69}, {2, 0x68}),
+      secondaryBus(1),
+      hardwareImuArray({device.getUpperImu(), Wire},
+                       {device.getMiddleImu(), Wire},
+                       {device.getLowerImu(), secondaryBus}) {}
+
+bool HwUflexRuntime::begin() {
+    Wire.begin(PRIMARY_SDA_PIN, PRIMARY_SCL_PIN);
+    secondaryBus.begin(SECONDARY_SDA_PIN, SECONDARY_SCL_PIN);
+
+    Serial.printf("Primary bus SDA=%u SCL=%u\n", PRIMARY_SDA_PIN, PRIMARY_SCL_PIN);
+    Serial.printf("Secondary bus SDA=%u SCL=%u\n", SECONDARY_SDA_PIN, SECONDARY_SCL_PIN);
+    Serial.println("Initializing MPU9250 IMU array...");
+    Serial.println("Hardware integration is preliminary and still needs physical validation.");
+
+    return hardwareImuArray.begin();
+}
+
+bool HwUflexRuntime::update() {
+    return hardwareImuArray.update();
+}
+
+UflexDevice& HwUflexRuntime::getDevice() {
+    return device;
+}
