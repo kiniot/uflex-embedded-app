@@ -4,6 +4,11 @@
 
 /**
  * @file imu.cpp
+ * @brief Implements the domain IMU abstraction for uFlex.
+ *
+ * This class stores the latest inertial sample for one logical IMU and uses
+ * the ModestIoT event model to notify the central device whenever a new sample
+ * arrives from simulation or hardware infrastructure.
  *
  * @author Salim Ramirez
  * @date June 8, 2026

@@ -4,6 +4,10 @@
 
 /**
  * @file motion_payload_mapper.cpp
+ * @brief Implements mapping from domain motion state to transport payload.
+ *
+ * The mapper currently extracts the derived relative angles needed by the
+ * transport contract, leaving richer domain-only details behind.
  *
  * @author Salim Ramirez
  * @date June 8, 2026

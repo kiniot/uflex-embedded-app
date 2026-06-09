@@ -10,6 +10,12 @@
 
 /**
  * @file motion_state.h
+ * @brief Declares the aggregated motion snapshot for the uFlex domain.
+ *
+ * MotionState represents the processed state currently exposed by the central
+ * domain device. It keeps the latest IMU samples together with the relative
+ * angles derived from them so application and transport layers can consume a
+ * stable view of the current motion frame.
  *
  * @author Salim Ramirez
  * @date June 8, 2026

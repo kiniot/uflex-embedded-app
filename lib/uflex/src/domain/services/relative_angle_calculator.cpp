@@ -4,6 +4,11 @@
 
 /**
  * @file relative_angle_calculator.cpp
+ * @brief Implements relative angle calculations for the uFlex domain.
+ *
+ * The current implementation estimates pitch and roll from accelerometer data
+ * and returns the difference between two IMU samples so higher layers can work
+ * with motion-oriented values instead of raw sensor vectors.
  *
  * @author Salim Ramirez
  * @date June 8, 2026

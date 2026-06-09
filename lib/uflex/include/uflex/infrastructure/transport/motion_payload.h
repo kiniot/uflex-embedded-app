@@ -9,6 +9,11 @@
 
 /**
  * @file motion_payload.h
+ * @brief Declares the transport-oriented motion payload for uFlex.
+ *
+ * MotionPayload contains the subset of processed motion data currently exposed
+ * to transport mechanisms such as serial output, BLE, or HTTP. It intentionally
+ * stays smaller than the full MotionState by focusing on derived angles.
  *
  * @author Salim Ramirez
  * @date June 8, 2026

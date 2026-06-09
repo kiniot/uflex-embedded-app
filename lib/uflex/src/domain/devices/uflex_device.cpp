@@ -4,6 +4,11 @@
 
 /**
  * @file uflex_device.cpp
+ * @brief Implements the central domain device for uFlex.
+ *
+ * UflexDevice listens for IMU motion events, recalculates relative angles for
+ * the tracked limb segments, and exposes the resulting motion snapshot to the
+ * layers above the domain.
  *
  * @author Salim Ramirez
  * @date June 8, 2026

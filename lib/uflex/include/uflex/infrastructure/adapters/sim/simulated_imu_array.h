@@ -12,6 +12,12 @@
 
 /**
  * @file simulated_imu_array.h
+ * @brief Declares the simulation adapter for three IMUs.
+ *
+ * SimulatedImuArray reads the MPU6050-compatible sensors exposed by the
+ * simulator and uses those readings to update the corresponding domain IMUs.
+ * It mirrors the role of the hardware adapter while remaining specific to the
+ * simulation environment.
  *
  * @author Salim Ramirez
  * @date June 8, 2026
@@ -19,17 +25,29 @@
  */
 class SimulatedImuArray {
 public:
+    /**
+     * @brief Binds one domain IMU to the simulated I2C bus used to reach it.
+     */
     struct ImuBinding {
         Imu& imu;
         TwoWire& bus;
     };
 
+    /**
+     * @brief Constructs the adapter for three simulated IMUs.
+     */
     SimulatedImuArray(ImuBinding firstImu,
         ImuBinding secondImu,
         ImuBinding thirdImu);
 
+    /**
+     * @brief Detects and initializes all configured simulated IMUs.
+     */
     bool begin();
 
+    /**
+     * @brief Reads all configured IMUs and updates their domain samples.
+     */
     bool update();
 
 private:

@@ -9,6 +9,11 @@
 
 /**
  * @file imu_sample.h
+ * @brief Declares the inertial sample structure shared across uFlex.
+ *
+ * ImuSample captures the accelerometer, gyroscope, and temperature values used
+ * by the current domain model. The same structure is produced by simulation and
+ * hardware adapters so motion calculations can stay backend-agnostic.
  *
  * @author Salim Ramirez
  * @date June 8, 2026

@@ -8,6 +8,11 @@
 
 /**
  * @file simulated_imu_array.cpp
+ * @brief Implements the simulation adapter for three IMUs.
+ *
+ * This adapter reads the MPU6050-compatible sensors exposed by the simulator
+ * and forwards those measurements to the domain IMUs, allowing the rest of the
+ * application to behave as if it were consuming real hardware input.
  *
  * @author Salim Ramirez
  * @date June 8, 2026

@@ -4,6 +4,11 @@
 
 /**
  * @file motion_payload_serializer.cpp
+ * @brief Implements JSON serialization for the motion transport payload.
+ *
+ * The serializer produces a compact textual representation of the derived
+ * motion angles so they can be logged, debugged, or forwarded through future
+ * communication channels without depending on domain internals.
  *
  * @author Salim Ramirez
  * @date June 8, 2026
