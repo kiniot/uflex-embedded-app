@@ -211,7 +211,7 @@ Este proyecto usa **C++** sobre **Arduino/ESP32** con compilación por PlatformI
 - Conservar la cabecera generada por el IDE cuando ya se usa en el archivo:
 ```cpp
 //
-// Created by Salim Ramirez Mestanza on 8/06/26.
+// Created by <nombre del miembro del equipo> on <fecha>.
 //
 ```
 - Documentar archivos importantes con `@file`, `@brief`, autor, fecha y versión.

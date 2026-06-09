@@ -211,7 +211,7 @@ This project uses **C++** on top of **Arduino/ESP32** with PlatformIO.
 - Preserve the IDE-generated header where that convention is already used:
 ```cpp
 //
-// Created by Salim Ramirez Mestanza on 8/06/26.
+// Created by <team member name> on <date>.
 //
 ```
 - Document important files with `@file`, `@brief`, author, date, and version metadata.

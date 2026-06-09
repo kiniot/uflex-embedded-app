@@ -11,13 +11,13 @@ El equipo es **cerrado**; no se aceptan contribuciones externas.
 
 ## Equipo
 
-| Full Name      | Contact                                                               |
-|----------------|-----------------------------------------------------------------------|
-| Salim Ramirez  | [salimramirezm@gmail.com](mailto:salimramirezm@gmail.com)             |
-| Paúl Sulca     | [u20221c486@gmail.com](mailto:u20221c486@gmail.com)                   |
-| Daniel Crispin | [danielfrancocrispin@gmail.com](mailto:danielfrancocrispin@gmail.com) |
-| Gael Rivera    | [gaelrszk@gmail.com](mailto:gaelrszk@gmail.com)                       |
-| Marcelo Varela | [marcelvarbus31@gmail.com](mailto:marcelvarbus31@gmail.com)           |
+| Nombre Completo | Contacto                                                              |
+|-----------------|-----------------------------------------------------------------------|
+| Salim Ramirez   | [salimramirezm@gmail.com](mailto:salimramirezm@gmail.com)             |
+| Paúl Sulca      | [u20221c486@gmail.com](mailto:u20221c486@gmail.com)                   |
+| Daniel Crispin  | [danielfrancocrispin@gmail.com](mailto:danielfrancocrispin@gmail.com) |
+| Gael Rivera     | [gaelrszk@gmail.com](mailto:gaelrszk@gmail.com)                       |
+| Marcelo Varela  | [marcelvarbus31@gmail.com](mailto:marcelvarbus31@gmail.com)           |
 
 ---
 
