@@ -4,14 +4,13 @@
 
 /**
  * @file relative_angle_calculator.cpp
- * @brief Implements relative angle calculations for inertial samples.
  *
  * @author Salim Ramirez
  * @date June 8, 2026
  * @version 0.1.0
  */
 
-#include "uflex_core/math/relative_angle_calculator.h"
+#include "uflex/domain/services/relative_angle_calculator.h"
 
 #include <math.h>
 
@@ -19,22 +18,22 @@ namespace {
 
 constexpr float kRadiansToDegrees = 57.2957795f;
 
-float calculatePitchDegrees(const InertialSample& sample) {
+float calculatePitchDegrees(const ImuSample& sample) {
     return atan2f(static_cast<float>(sample.accelX),
                   sqrtf(static_cast<float>(sample.accelY) * static_cast<float>(sample.accelY) +
                         static_cast<float>(sample.accelZ) * static_cast<float>(sample.accelZ))) *
            kRadiansToDegrees;
 }
 
-float calculateRollDegrees(const InertialSample& sample) {
+float calculateRollDegrees(const ImuSample& sample) {
     return atan2f(static_cast<float>(sample.accelY), static_cast<float>(sample.accelZ)) *
            kRadiansToDegrees;
 }
 
 } // namespace
 
-RelativeAngle RelativeAngleCalculator::calculate(const InertialSample& first,
-                                                 const InertialSample& second) {
+RelativeAngle RelativeAngleCalculator::calculate(const ImuSample& first,
+                                                 const ImuSample& second) {
     const float firstPitch = calculatePitchDegrees(first);
     const float secondPitch = calculatePitchDegrees(second);
     const float firstRoll = calculateRollDegrees(first);
