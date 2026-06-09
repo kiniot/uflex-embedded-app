@@ -12,6 +12,8 @@
   <img src="https://img.shields.io/badge/Targets-esp32__sim%20%7C%20esp32__hw-6B7280?style=flat-square" alt="Simulation and Hardware Targets" />
 </div>
 
+---
+
 This repository contains the **uFlex embedded firmware**, an ESP32-based telerehabilitation project focused on capturing limb motion through multiple IMUs and producing processed motion data for future transport layers such as BLE and Wi-Fi.
 
 The project currently supports:
