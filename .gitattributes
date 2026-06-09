@@ -1,0 +1,26 @@
+* text=auto eol=lf
+
+*.c text
+*.cpp text
+*.h text
+*.hpp text
+*.ino text
+*.py text
+*.sh text
+*.md text
+*.txt text
+*.json text
+*.toml text
+*.ini text
+*.yml text
+*.yaml text
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.wasm binary
+*.bin binary
+*.elf binary
+*.zip binary
