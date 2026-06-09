@@ -1,18 +1,19 @@
 #include <Arduino.h>
+#include "uflex/application/runtime/create_uflex_runtime.h"
+#include "uflex/application/uflex_application.h"
 
-// put function declarations here:
-int myFunction(int, int);
+namespace {
+
+UflexApplication app(createUflexRuntime());
+
+} // namespace
 
 void setup() {
-  // put your setup code here, to run once:
-  int result = myFunction(2, 3);
+  Serial.begin(115200);
+  delay(250);
+  app.begin();
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-}
-
-// put function definitions here:
-int myFunction(int x, int y) {
-  return x + y;
+  app.loop();
 }

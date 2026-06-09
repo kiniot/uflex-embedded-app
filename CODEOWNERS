@@ -1,0 +1,23 @@
+# CODEOWNERS file
+# ----------------
+# This file defines the default code owners for the repository.
+# A code owner is automatically requested for review when someone opens
+# a pull request that modifies the files they own.
+#
+# In this initial setup, we are keeping it simple:
+# every developer listed below is considered a global owner of the codebase.
+#
+# What this means:
+# - Whenever a pull request is opened, GitHub will automatically notify
+#   all the developers listed here and request their review.
+# - This ensures visibility: every teammate is aware of changes in the repo.
+#
+# Important:
+# - This file by itself does NOT block merges.
+# - A pull request can still be merged without review or approval,
+#   unless branch protection rules are enabled in GitHub settings.
+# - If in the future we want to enforce mandatory reviews, we can update
+#   the branch protection rules to require one or more approvals.
+#
+# Global owners (applies to all files and directories in the repo):
+*   @Kyrubi @danielcr04 @salimramirez @gael-rs @VarBus

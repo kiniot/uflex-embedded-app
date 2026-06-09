@@ -3,18 +3,58 @@
   "author": "uFlex",
   "editor": "wokwi",
   "parts": [
-    { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": 0, "left": 0, "attrs": {} },
+    { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": 0, "left": -71.96, "attrs": {} },
+    { "type": "wokwi-breadboard-half", "id": "bb2", "top": 237, "left": -122, "attrs": {} },
     {
-      "type": "chip-tca9548a",
-      "id": "mux1",
-      "top": 120,
-      "left": 140,
+      "type": "wokwi-mpu6050",
+      "id": "imu1",
+      "top": 319.78,
+      "left": 262.12,
+      "rotate": 270,
       "attrs": {}
-    }
+    },
+    {
+      "type": "wokwi-mpu6050",
+      "id": "imu2",
+      "top": 319.78,
+      "left": 386.92,
+      "rotate": 270,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-mpu6050",
+      "id": "imu3",
+      "top": 319.78,
+      "left": 511.72,
+      "rotate": 270,
+      "attrs": {}
+    },
+    { "type": "chip-tca9548a", "id": "mux1", "top": 471.42, "left": 360, "attrs": {} }
   ],
   "connections": [
     [ "esp:TX", "$serialMonitor:RX", "", [] ],
-    [ "esp:RX", "$serialMonitor:TX", "", [] ]
+    [ "esp:RX", "$serialMonitor:TX", "", [] ],
+    [ "esp:3V3", "bb2:tp.1", "red", [ "h-19.05", "v220.5" ] ],
+    [ "esp:GND.1", "bb2:tn.2", "black", [ "h-9.45", "v105.7" ] ],
+    [ "imu1:VCC", "bb2:tp.18", "red", [ "v-153.68", "h-172.8", "v86.1" ] ],
+    [ "imu2:VCC", "bb2:tp.19", "red", [ "v-144.08", "h-288", "v76.5" ] ],
+    [ "imu3:VCC", "bb2:tp.20", "red", [ "v-134.48", "h-403.2", "v66.9" ] ],
+    [ "imu1:GND", "bb2:tn.23", "black", [ "h-9.6", "v-115.28", "h-105.6", "v48.1" ] ],
+    [ "imu2:GND", "bb2:tn.24", "black", [ "h-9.6", "v-105.68", "h-220.8", "v38.5" ] ],
+    [ "imu3:GND", "bb2:tn.25", "black", [ "h-9.6", "v-96.08", "h-336", "v28.9" ] ],
+    [ "mux1:VCC", "bb2:tp.21", "red", [ "h-134.4", "v-288", "h-86.4", "v57.3" ] ],
+    [ "mux1:GND", "bb2:tn.22", "black", [ "h-144", "v-288", "h-67.2", "v57.7" ] ],
+    [ "esp:22", "bb2:16b.f", "orange", [ "h19.2", "v307.2" ] ],
+    [ "esp:21", "bb2:15b.f", "blue", [ "h9.6", "v278.4" ] ],
+    [ "imu2:AD0", "bb2:tp.17", "green", [ "h-38.4", "v-220.78", "h-268.8", "v95.7" ] ],
+    [ "imu1:SCL", "bb2:16b.g", "orange", [ "h-28.8", "v28.72", "h-192" ] ],
+    [ "imu1:SDA", "bb2:15b.h", "blue", [ "h-19.2", "v19.12", "h0", "v9.6" ] ],
+    [ "imu2:SDA", "bb2:15b.j", "blue", [ "h-19.2", "v67.12", "h-345.6" ] ],
+    [ "imu2:SCL", "bb2:16b.i", "orange", [ "h-28.8", "v67.12", "h-326.4" ] ],
+    [ "esp:26", "bb2:13b.f", "blue", [ "h-67.05", "v240", "h9.6" ] ],
+    [ "esp:25", "bb2:14b.g", "orange", [ "v0", "h-76.65", "v259.2" ] ],
+    [ "imu3:SDA", "bb2:13b.h", "blue", [ "h-19.2", "v105.52", "h-489.6" ] ],
+    [ "imu3:SCL", "bb2:14b.h", "orange", [ "h-28.8", "v105.52", "h-470.4" ] ]
   ],
   "dependencies": {}
 }
