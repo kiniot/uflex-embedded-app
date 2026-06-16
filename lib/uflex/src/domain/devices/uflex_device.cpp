@@ -22,6 +22,9 @@ UflexDevice::UflexDevice(ImuConfig upperImuConfig, ImuConfig middleImuConfig,
     : upperImu(upperImuConfig.imuId, upperImuConfig.i2cAddress, this),
       middleImu(middleImuConfig.imuId, middleImuConfig.i2cAddress, this),
       lowerImu(lowerImuConfig.imuId, lowerImuConfig.i2cAddress, this),
+      statusBuzzer(this),
+      statusLed(this),
+      vibrationMotor(this),
       upperMiddleAngle{0.0f, 0.0f},
       middleLowerAngle{0.0f, 0.0f},
       upperLowerAngle{0.0f, 0.0f} {}
@@ -44,7 +47,9 @@ void UflexDevice::on(Event event) {
 }
 
 void UflexDevice::handle(Command command) {
-    (void)command;
+    statusBuzzer.handle(command);
+    statusLed.handle(command);
+    vibrationMotor.handle(command);
 }
 
 Imu& UflexDevice::getUpperImu() {
@@ -57,6 +62,18 @@ Imu& UflexDevice::getMiddleImu() {
 
 Imu& UflexDevice::getLowerImu() {
     return lowerImu;
+}
+
+ActiveBuzzer& UflexDevice::getStatusBuzzer() {
+    return statusBuzzer;
+}
+
+RgbLed& UflexDevice::getStatusLed() {
+    return statusLed;
+}
+
+VibrationMotor& UflexDevice::getVibrationMotor() {
+    return vibrationMotor;
 }
 
 RelativeAngle UflexDevice::getUpperMiddleAngle() const {
