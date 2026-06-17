@@ -8,6 +8,7 @@
 #include <cstddef>
 
 #include "uflex/application/runtime/uflex_runtime.h"
+#include "uflex/infrastructure/transport/edge_client.h"
 
 /**
  * @file uflex_application.h
@@ -37,6 +38,7 @@ private:
     static constexpr size_t MOTION_PAYLOAD_BUFFER_SIZE = 256;
 
     UflexRuntime& runtime;
+    EdgeClient edgeClient;
     unsigned long lastReadAt;
 
     static void logSample(const char* label, const ImuSample& sample, uint8_t address);

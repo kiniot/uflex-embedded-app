@@ -28,13 +28,18 @@
  * @version 0.1.0
  */
 
-UflexApplication::UflexApplication(UflexRuntime& runtime) : runtime(runtime), lastReadAt(0) {}
+UflexApplication::UflexApplication(UflexRuntime& runtime)
+    : runtime(runtime),
+      edgeClient({UFLEX_WIFI_SSID, UFLEX_WIFI_PASSWORD, UFLEX_WIFI_CHANNEL, UFLEX_EDGE_HOST,
+                  UFLEX_EDGE_PORT, UFLEX_EDGE_PATH, UFLEX_DEVICE_ID, UFLEX_DEVICE_API_KEY}),
+      lastReadAt(0) {}
 
 void UflexApplication::begin() {
     Serial.printf("uFlex motion probe (%s target)\n", UFLEX_BUILD_TARGET_NAME);
     runtime.begin();
     pulseBuzzer(2);
     pulseVibrationMotor(2);
+    edgeClient.begin();
     Serial.println();
 }
 
@@ -119,6 +124,10 @@ void UflexApplication::logAllSamples() {
     } else {
         Serial.println("payload: serialization failed");
     }
+
+    // The edge gateway currently ingests a single flexion angle per record, so
+    // we forward the full-limb (upper-to-lower) pitch as the joint angle.
+    edgeClient.publishAngle(motionPayload.upperLowerAngle.pitchDegrees);
 
     Serial.println();
 }
