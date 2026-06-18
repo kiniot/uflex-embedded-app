@@ -1,0 +1,286 @@
+@startuml
+title uFlex Embedded App - Class Diagram
+
+left to right direction
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam linetype ortho
+hide empty members
+
+package "ModestIoT" as ModestIoT {
+    class "Event" as Event <<struct>> {
+        + id: int
+        + Event(eventId: int)
+        + operator==(other: Event): bool
+    }
+
+    class "Command" as Command <<struct>> {
+        + id: int
+        + Command(commandId: int)
+        + operator==(other: Command): bool
+    }
+
+    interface "EventHandler" as EventHandler {
+        + on(event: Event): void
+    }
+
+    interface "CommandHandler" as CommandHandler {
+        + handle(command: Command): void
+    }
+
+    class "Sensor" as Sensor {
+        # pin: int
+        # handler: EventHandler*
+        + Sensor(pin: int, eventHandler: EventHandler*)
+        + on(event: Event): void
+        + setHandler(eventHandler: EventHandler*): void
+    }
+
+    abstract class "Device" as Device {
+        + on(event: Event): void
+        + handle(command: Command): void
+    }
+
+    class "Actuator" as Actuator {
+        # pin: int
+        # handler: CommandHandler*
+        + Actuator(pin: int, commandHandler: CommandHandler*)
+        + handle(command: Command): void
+        + setHandler(commandHandler: CommandHandler*): void
+    }
+}
+
+package "domain" as Domain {
+    class "ImuSample" as ImuSample <<struct>> {
+        + accelX: int16_t
+        + accelY: int16_t
+        + accelZ: int16_t
+        + gyroX: int16_t
+        + gyroY: int16_t
+        + gyroZ: int16_t
+        + temperature: int16_t
+    }
+
+    class "RelativeAngle" as RelativeAngle <<struct>> {
+        + pitchDegrees: float
+        + rollDegrees: float
+    }
+
+    class "RelativeAngleCalculator" as RelativeAngleCalculator {
+        + {static} calculate(first: const ImuSample&, second: const ImuSample&): RelativeAngle
+    }
+
+    class "Imu" as Imu {
+        - i2cAddress: uint8_t
+        - lastSample: ImuSample
+        + {static} MOTION_DETECTED_EVENT_ID: int
+        + {static} MOTION_DETECTED_EVENT: Event
+        + Imu(imuId: int, i2cAddress: uint8_t, eventHandler: EventHandler*)
+        + getI2cAddress(): uint8_t
+        + getLastSample(): const ImuSample&
+        + updateSample(sample: const ImuSample&): void
+    }
+
+    class "ImuConfig" as ImuConfig <<struct>> {
+        + imuId: int
+        + i2cAddress: uint8_t
+    }
+
+    class "MotionState" as MotionState <<struct>> {
+        + upperSample: ImuSample
+        + middleSample: ImuSample
+        + lowerSample: ImuSample
+        + upperMiddleAngle: RelativeAngle
+        + middleLowerAngle: RelativeAngle
+        + upperLowerAngle: RelativeAngle
+    }
+
+    class "UflexDevice" as UflexDevice {
+        - upperImu: Imu
+        - middleImu: Imu
+        - lowerImu: Imu
+        - upperMiddleAngle: RelativeAngle
+        - middleLowerAngle: RelativeAngle
+        - upperLowerAngle: RelativeAngle
+        + UflexDevice(upper: ImuConfig, middle: ImuConfig, lower: ImuConfig)
+        + on(event: Event): void
+        + handle(command: Command): void
+        + getUpperImu(): Imu&
+        + getMiddleImu(): Imu&
+        + getLowerImu(): Imu&
+        + getUpperMiddleAngle(): RelativeAngle
+        + getMiddleLowerAngle(): RelativeAngle
+        + getUpperLowerAngle(): RelativeAngle
+        + getMotionState(): MotionState
+    }
+}
+
+package "application.runtime" as ApplicationRuntime {
+    abstract class "UflexRuntime" as UflexRuntime {
+        + begin(): bool
+        + update(): bool
+        + getDevice(): UflexDevice&
+    }
+
+    class "SimUflexRuntime" as SimUflexRuntime {
+        - device: UflexDevice
+        - secondaryBus: TwoWire
+        - simulatedImuArray: SimulatedImuArray
+        + SimUflexRuntime()
+        + begin(): bool
+        + update(): bool
+        + getDevice(): UflexDevice&
+    }
+
+    class "HwUflexRuntime" as HwUflexRuntime {
+        - device: UflexDevice
+        - secondaryBus: TwoWire
+        - hardwareImuArray: Mpu9250ImuArray
+        + HwUflexRuntime()
+        + begin(): bool
+        + update(): bool
+        + getDevice(): UflexDevice&
+    }
+
+    class "createUflexRuntime()" as CreateUflexRuntime <<free function>> {
+        + createUflexRuntime(): UflexRuntime&
+    }
+}
+
+package "application" as Application {
+    class "UflexApplication" as UflexApplication {
+        - runtime: UflexRuntime&
+        - lastReadAt: unsigned long
+        + UflexApplication(runtime: UflexRuntime&)
+        + begin(): void
+        + loop(): void
+        - logAllSamples(): void
+    }
+}
+
+package "infrastructure.adapters.sim" as InfrastructureSim {
+    class "SimulatedImuArray::ImuBinding" as SimImuBinding <<struct>> {
+        + imu: Imu&
+        + bus: TwoWire&
+    }
+
+    class "SimulatedImuArray" as SimulatedImuArray {
+        - imus: ImuBinding[3]
+        + SimulatedImuArray(first: ImuBinding, second: ImuBinding, third: ImuBinding)
+        + begin(): bool
+        + update(): bool
+        - initializeImu(binding: ImuBinding&): bool
+        - detectImu(binding: ImuBinding&, whoAmI: uint8_t&): bool
+        - wakeImu(binding: ImuBinding&): bool
+        - updateImu(binding: ImuBinding&): bool
+    }
+}
+
+package "infrastructure.adapters.hw" as InfrastructureHw {
+    class "Mpu9250ImuArray::ImuBinding" as HwImuBinding <<struct>> {
+        + imu: Imu&
+        + bus: TwoWire&
+    }
+
+    class "Mpu9250ImuArray" as Mpu9250ImuArray {
+        - imus: ImuBinding[3]
+        + Mpu9250ImuArray(first: ImuBinding, second: ImuBinding, third: ImuBinding)
+        + begin(): bool
+        + update(): bool
+        - initializeImu(binding: ImuBinding&): bool
+        - detectImu(binding: ImuBinding&, whoAmI: uint8_t&): bool
+        - wakeImu(binding: ImuBinding&): bool
+        - updateImu(binding: ImuBinding&): bool
+    }
+}
+
+package "infrastructure.transport" as InfrastructureTransport {
+    class "MotionPayload" as MotionPayload <<struct>> {
+        + upperMiddleAngle: RelativeAngle
+        + middleLowerAngle: RelativeAngle
+        + upperLowerAngle: RelativeAngle
+    }
+
+    class "MotionPayloadMapper" as MotionPayloadMapper {
+        + {static} map(motionState: const MotionState&): MotionPayload
+    }
+
+    class "MotionPayloadSerializer" as MotionPayloadSerializer {
+        + {static} toJson(payload: const MotionPayload&, buffer: char*, bufferSize: size_t): int
+    }
+}
+
+package "Project Files" as ProjectFiles {
+    class "platformio.ini" as PlatformIoConfig <<file>>
+    class "include/config/build_config.h" as BuildConfig <<file>>
+    class "src/main.cpp" as MainEntry <<file>>
+}
+
+EventHandler <|.. Sensor
+CommandHandler <|.. Actuator
+EventHandler <|.. Device
+CommandHandler <|.. Device
+
+Sensor <|-- Imu
+Device <|-- UflexDevice
+
+Sensor --> EventHandler : notifies
+Actuator --> CommandHandler : sends commands
+
+Imu *-- ImuSample : stores latest sample
+Imu ..> Event : emits motion event
+
+UflexDevice *-- "3" Imu : owns
+UflexDevice *-- "3" RelativeAngle : stores
+UflexDevice ..> ImuConfig : receives configuration
+UflexDevice ..> RelativeAngleCalculator : calculates angles
+UflexDevice ..> MotionState : returns state
+
+Imu --> UflexDevice : uses as event handler
+
+RelativeAngleCalculator ..> ImuSample : reads
+RelativeAngleCalculator ..> RelativeAngle : creates
+
+MotionState *-- "3" ImuSample : contains
+MotionState *-- "3" RelativeAngle : contains
+
+UflexRuntime <|-- SimUflexRuntime
+UflexRuntime <|-- HwUflexRuntime
+
+SimUflexRuntime *-- UflexDevice : owns
+HwUflexRuntime *-- UflexDevice : owns
+
+SimUflexRuntime *-- SimulatedImuArray : owns
+HwUflexRuntime *-- Mpu9250ImuArray : owns
+
+SimulatedImuArray *-- "3" SimImuBinding : contains
+Mpu9250ImuArray *-- "3" HwImuBinding : contains
+
+SimImuBinding o--> Imu : updates
+HwImuBinding o--> Imu : updates
+
+SimulatedImuArray ..> ImuSample : creates samples
+Mpu9250ImuArray ..> ImuSample : creates samples
+
+UflexApplication o-- UflexRuntime : holds reference
+UflexApplication ..> MotionState : reads
+UflexApplication ..> MotionPayloadMapper : maps
+UflexApplication ..> MotionPayloadSerializer : serializes
+UflexApplication ..> MotionPayload : logs
+
+MotionPayload *-- "3" RelativeAngle : contains
+MotionPayloadMapper ..> MotionState : input
+MotionPayloadMapper ..> MotionPayload : creates
+MotionPayloadSerializer ..> MotionPayload : serializes
+
+CreateUflexRuntime --> UflexRuntime : returns runtime
+CreateUflexRuntime ..> SimUflexRuntime : creates when UFLEX_TARGET_SIM
+CreateUflexRuntime ..> HwUflexRuntime : creates when UFLEX_TARGET_HW
+
+PlatformIoConfig ..> BuildConfig : defines target macro
+CreateUflexRuntime ..> BuildConfig : reads target macro
+UflexApplication ..> BuildConfig : reads target name
+MainEntry ..> CreateUflexRuntime : obtains runtime
+MainEntry ..> UflexApplication : creates application
+
+@enduml

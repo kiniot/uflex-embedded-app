@@ -8,6 +8,9 @@
 #include <Device.h>
 #include <stdint.h>
 
+#include "uflex/domain/actuators/active_buzzer.h"
+#include "uflex/domain/actuators/rgb_led.h"
+#include "uflex/domain/actuators/vibration_motor.h"
 #include "uflex/domain/devices/motion_state.h"
 #include "uflex/domain/services/relative_angle_calculator.h"
 #include "uflex/domain/sensors/imu.h"
@@ -29,6 +32,9 @@ private:
     Imu upperImu;
     Imu middleImu;
     Imu lowerImu;
+    ActiveBuzzer statusBuzzer;
+    RgbLed statusLed;
+    VibrationMotor vibrationMotor;
     RelativeAngle upperMiddleAngle;
     RelativeAngle middleLowerAngle;
     RelativeAngle upperLowerAngle;
@@ -72,6 +78,21 @@ public:
      * @brief Returns the lower IMU.
      */
     Imu& getLowerImu();
+
+    /**
+     * @brief Returns the domain active buzzer.
+     */
+    ActiveBuzzer& getStatusBuzzer();
+
+    /**
+     * @brief Returns the domain RGB status LED.
+     */
+    RgbLed& getStatusLed();
+
+    /**
+     * @brief Returns the domain vibration motor.
+     */
+    VibrationMotor& getVibrationMotor();
 
     /**
      * @brief Returns the relative angle between the upper and middle IMUs.

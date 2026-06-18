@@ -8,6 +8,7 @@
 #include <cstddef>
 
 #include "uflex/application/runtime/uflex_runtime.h"
+#include "uflex/infrastructure/transport/edge_client.h"
 
 /**
  * @file uflex_application.h
@@ -30,12 +31,19 @@ public:
 
 private:
     static constexpr unsigned long READ_INTERVAL_MS = 1000;
+    static constexpr unsigned long BUZZER_PULSE_MS = 100;
+    static constexpr unsigned long BUZZER_PULSE_GAP_MS = 100;
+    static constexpr unsigned long VIBRATION_MOTOR_PULSE_MS = 250;
+    static constexpr unsigned long VIBRATION_MOTOR_PULSE_GAP_MS = 250;
     static constexpr size_t MOTION_PAYLOAD_BUFFER_SIZE = 256;
 
     UflexRuntime& runtime;
+    EdgeClient edgeClient;
     unsigned long lastReadAt;
 
     static void logSample(const char* label, const ImuSample& sample, uint8_t address);
+    void pulseBuzzer(size_t pulseCount);
+    void pulseVibrationMotor(size_t pulseCount);
     void logAllSamples();
 };
 

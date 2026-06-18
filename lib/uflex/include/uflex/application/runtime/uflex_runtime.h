@@ -24,6 +24,7 @@ class UflexRuntime {
 public:
     virtual bool begin() = 0;
     virtual bool update() = 0;
+    virtual void applyOutputs() = 0;
     virtual UflexDevice& getDevice() = 0;
     virtual ~UflexRuntime() = default;
 };

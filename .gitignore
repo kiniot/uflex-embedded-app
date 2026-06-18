@@ -20,3 +20,7 @@ CMakeLists.txt
 Thumbs.db
 *.bak
 *.tmp
+
+### Local runtime artifacts ###
+# SQLite database created by the edge gateway during local end-to-end tests.
+*.db

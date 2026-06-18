@@ -24,21 +24,38 @@ SimUflexRuntime::SimUflexRuntime()
       secondaryBus(1),
       simulatedImuArray({device.getUpperImu(), Wire},
                         {device.getMiddleImu(), Wire},
-                        {device.getLowerImu(), secondaryBus}) {}
+                        {device.getLowerImu(), secondaryBus}),
+      statusBuzzer(BUZZER_PIN),
+      statusLed(RGB_RED_PIN, RGB_GREEN_PIN, RGB_BLUE_PIN),
+      vibrationMotor(VIBRATION_MOTOR_PIN) {}
 
 bool SimUflexRuntime::begin() {
+    statusBuzzer.begin();
+    statusLed.begin();
+    vibrationMotor.begin();
     Wire.begin(PRIMARY_SDA_PIN, PRIMARY_SCL_PIN);
     secondaryBus.begin(SECONDARY_SDA_PIN, SECONDARY_SCL_PIN);
 
     Serial.printf("Primary bus SDA=%u SCL=%u\n", PRIMARY_SDA_PIN, PRIMARY_SCL_PIN);
     Serial.printf("Secondary bus SDA=%u SCL=%u\n", SECONDARY_SDA_PIN, SECONDARY_SCL_PIN);
+    Serial.printf("Buzzer status pin=%u\n", BUZZER_PIN);
+    Serial.printf("Vibration motor status pin=%u\n", VIBRATION_MOTOR_PIN);
+    Serial.printf("RGB status LED pins R=%u G=%u B=%u\n", RGB_RED_PIN, RGB_GREEN_PIN,
+                  RGB_BLUE_PIN);
     Serial.println("Initializing simulated MPU6050 sensors...");
 
+    applyOutputs();
     return simulatedImuArray.begin();
 }
 
 bool SimUflexRuntime::update() {
     return simulatedImuArray.update();
+}
+
+void SimUflexRuntime::applyOutputs() {
+    statusBuzzer.apply(device.getStatusBuzzer());
+    statusLed.apply(device.getStatusLed());
+    vibrationMotor.apply(device.getVibrationMotor());
 }
 
 UflexDevice& SimUflexRuntime::getDevice() {

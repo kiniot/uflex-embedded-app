@@ -7,6 +7,9 @@
 #include <Arduino.h>
 
 #include "config/build_config.h"
+#include "uflex/domain/actuators/active_buzzer.h"
+#include "uflex/domain/actuators/rgb_led.h"
+#include "uflex/domain/actuators/vibration_motor.h"
 #include "uflex/domain/devices/motion_state.h"
 #include "uflex/infrastructure/transport/motion_payload.h"
 #include "uflex/infrastructure/transport/motion_payload_mapper.h"
@@ -25,11 +28,18 @@
  * @version 0.1.0
  */
 
-UflexApplication::UflexApplication(UflexRuntime& runtime) : runtime(runtime), lastReadAt(0) {}
+UflexApplication::UflexApplication(UflexRuntime& runtime)
+    : runtime(runtime),
+      edgeClient({UFLEX_WIFI_SSID, UFLEX_WIFI_PASSWORD, UFLEX_WIFI_CHANNEL, UFLEX_EDGE_HOST,
+                  UFLEX_EDGE_PORT, UFLEX_EDGE_PATH, UFLEX_DEVICE_ID, UFLEX_DEVICE_API_KEY}),
+      lastReadAt(0) {}
 
 void UflexApplication::begin() {
     Serial.printf("uFlex motion probe (%s target)\n", UFLEX_BUILD_TARGET_NAME);
     runtime.begin();
+    pulseBuzzer(2);
+    pulseVibrationMotor(2);
+    edgeClient.begin();
     Serial.println();
 }
 
@@ -43,6 +53,10 @@ void UflexApplication::loop() {
     lastReadAt = now;
 
     if (runtime.update()) {
+        pulseBuzzer(1);
+        pulseVibrationMotor(1);
+        runtime.getDevice().handle(RgbLed::ADVANCE_COLOR_COMMAND);
+        runtime.applyOutputs();
         logAllSamples();
     }
 }
@@ -51,6 +65,36 @@ void UflexApplication::logSample(const char* label, const ImuSample& sample, uin
     Serial.printf("%s [0x%02X] AX=%d AY=%d AZ=%d TEMP=%d GX=%d GY=%d GZ=%d\n", label, address,
                   sample.accelX, sample.accelY, sample.accelZ, sample.temperature, sample.gyroX,
                   sample.gyroY, sample.gyroZ);
+}
+
+void UflexApplication::pulseBuzzer(size_t pulseCount) {
+    for (size_t pulseIndex = 0; pulseIndex < pulseCount; ++pulseIndex) {
+        runtime.getDevice().handle(ActiveBuzzer::TURN_ON_COMMAND);
+        runtime.applyOutputs();
+        delay(BUZZER_PULSE_MS);
+
+        runtime.getDevice().handle(ActiveBuzzer::TURN_OFF_COMMAND);
+        runtime.applyOutputs();
+
+        if (pulseIndex + 1 < pulseCount) {
+            delay(BUZZER_PULSE_GAP_MS);
+        }
+    }
+}
+
+void UflexApplication::pulseVibrationMotor(size_t pulseCount) {
+    for (size_t pulseIndex = 0; pulseIndex < pulseCount; ++pulseIndex) {
+        runtime.getDevice().handle(VibrationMotor::TURN_ON_COMMAND);
+        runtime.applyOutputs();
+        delay(VIBRATION_MOTOR_PULSE_MS);
+
+        runtime.getDevice().handle(VibrationMotor::TURN_OFF_COMMAND);
+        runtime.applyOutputs();
+
+        if (pulseIndex + 1 < pulseCount) {
+            delay(VIBRATION_MOTOR_PULSE_GAP_MS);
+        }
+    }
 }
 
 void UflexApplication::logAllSamples() {
@@ -80,6 +124,10 @@ void UflexApplication::logAllSamples() {
     } else {
         Serial.println("payload: serialization failed");
     }
+
+    // The edge gateway currently ingests a single flexion angle per record, so
+    // we forward the full-limb (upper-to-lower) pitch as the joint angle.
+    edgeClient.publishAngle(motionPayload.upperLowerAngle.pitchDegrees);
 
     Serial.println();
 }
