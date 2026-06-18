@@ -143,6 +143,48 @@ pio run -e esp32_hw
 
 ---
 
+## Testing
+
+The first PlatformIO/Unity unit suite is located in `test/test_uflex/`. It validates:
+
+- domain IMU initialization, sample updates, and motion-event propagation
+- `MotionState` aggregation
+- relative pitch and roll calculations, including direction and ignored sample fields
+- `UflexDevice` IMU configuration, event handling, and angle recalculation
+- motion payload mapping
+- compact JSON serialization and insufficient-buffer handling
+
+Run the suite on the simulation environment:
+
+```bash
+pio test -e esp32_sim
+```
+
+The `esp32_sim` environment is an embedded target, so executing the command requires a connected
+or simulated ESP32 test target. To compile the test firmware without uploading or opening a test
+port, use:
+
+```bash
+pio test -e esp32_sim --without-uploading --without-testing
+```
+
+After changing shared firmware or tests, also validate the regular builds:
+
+```bash
+pio run -e esp32_sim
+pio run -e esp32_hw
+```
+
+Current limitations:
+
+- `UflexApplication` directly uses Arduino `millis()` and global `Serial`, so its cadence and
+  logging behavior are not unit-tested without introducing time and output adapters.
+- `SimulatedImuArray` and `Mpu9250ImuArray` directly use `TwoWire`; they require simulated or
+  physical I2C integration tests rather than the current hardware-independent unit suite.
+- Hardware behavior still requires validation on the physical ESP32 and final MPU9250 wiring.
+
+---
+
 ## Documentation
 
 Setup and environment guides:
