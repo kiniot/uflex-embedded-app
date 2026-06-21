@@ -187,3 +187,49 @@ You can trigger the synchronization using either the graphical interface (recomm
   ```bash
   pio project init --ide clion
   ```
+
+---
+
+## 7. Hardware Deployment Secrets (WiFi & Edge Gateway)
+
+The `esp32_hw` target needs real WiFi credentials and the edge gateway API key
+to reach the `EdgeClient` transport. These values are **not** hardcoded in
+`include/config/build_config.h`; they are injected at compile time as build
+flags so they never end up committed to source control. The `esp32_sim`
+target is unaffected and keeps its public Wokwi values as-is.
+
+1. **Copy the example file**:
+   ```bash
+   cp .env.example .env
+   ```
+2. **Fill in real values** in `.env` (this file is git-ignored):
+   ```bash
+   UFLEX_WIFI_SSID=YourRealWifiName
+   UFLEX_WIFI_PASSWORD=YourRealWifiPassword
+   UFLEX_EDGE_HOST=192.168.1.100
+   UFLEX_DEVICE_API_KEY=your-real-api-key
+   ```
+3. **Build using the wrapper script for your platform**, which loads `.env`
+   and runs PlatformIO for you:
+
+   * **macOS / Linux:**
+     ```bash
+     ./scripts/build_hw.sh
+     ```
+   * **Windows (PowerShell):**
+     ```powershell
+     .\scripts\build_hw.ps1
+     ```
+
+   Any extra arguments are forwarded to `pio run`, e.g. to also upload:
+   ```bash
+   ./scripts/build_hw.sh -t upload
+   ```
+   ```powershell
+   .\scripts\build_hw.ps1 -t upload
+   ```
+
+If you run `pio run -e esp32_hw` directly without sourcing `.env` first, the
+build fails with a clear compile-time error (a `static_assert` in
+`build_config.h`) naming the missing variable, instead of silently shipping
+firmware with empty credentials.

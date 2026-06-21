@@ -34,24 +34,46 @@
 // Inside the Wokwi simulation, services running on the host machine (such as the
 // edge gateway on localhost) are reachable through this special hostname.
 #define UFLEX_EDGE_HOST "host.wokwi.internal"
+
+// Fixed test key for the local edge gateway used during simulation; not a real secret.
+#define UFLEX_DEVICE_API_KEY "test-api-key-123"
 #endif
 
 #if defined(UFLEX_TARGET_HW)
 #define UFLEX_BUILD_TARGET_NAME "hardware"
-
-// Replace with the real deployment WiFi credentials.
-#define UFLEX_WIFI_SSID "YOUR_WIFI_SSID"
-#define UFLEX_WIFI_PASSWORD "YOUR_WIFI_PASSWORD"
 #define UFLEX_WIFI_CHANNEL 0 // 0 = auto-select channel
 
-// Replace with the edge gateway address on the local network.
-#define UFLEX_EDGE_HOST "192.168.1.100"
+// UFLEX_WIFI_SSID, UFLEX_EDGE_HOST, and UFLEX_DEVICE_API_KEY are injected as
+// build flags from real deployment secrets (see platformio.ini env:esp32_hw
+// and scripts/build_hw.sh). They are intentionally not hardcoded here so they
+// never end up committed to source control. UFLEX_WIFI_PASSWORD may
+// legitimately be empty for an open network, so it is not checked below.
+#if !defined(UFLEX_WIFI_SSID) || !defined(UFLEX_WIFI_PASSWORD) || !defined(UFLEX_EDGE_HOST) || \
+    !defined(UFLEX_DEVICE_API_KEY)
+#error \
+    "esp32_hw requires UFLEX_WIFI_SSID, UFLEX_WIFI_PASSWORD, UFLEX_EDGE_HOST, and " \
+    "UFLEX_DEVICE_API_KEY as build flags. Copy .env.example to .env and build with " \
+    "scripts/build_hw.sh."
+#endif
+
+#if defined(__cplusplus)
+// An unset build flag still defines the macro as an empty string, which the
+// preprocessor #error checks above cannot detect. sizeof() of a string
+// literal can: an empty string literal has sizeof() == 1 (just the null
+// terminator), so this catches the unset-but-empty case at compile time.
+static_assert(sizeof(UFLEX_WIFI_SSID) > 1,
+              "UFLEX_WIFI_SSID is empty. Fill in .env and build with scripts/build_hw.sh.");
+static_assert(sizeof(UFLEX_EDGE_HOST) > 1,
+              "UFLEX_EDGE_HOST is empty. Fill in .env and build with scripts/build_hw.sh.");
+static_assert(
+    sizeof(UFLEX_DEVICE_API_KEY) > 1,
+    "UFLEX_DEVICE_API_KEY is empty. Fill in .env and build with scripts/build_hw.sh.");
+#endif
 #endif
 
 // Shared edge gateway contract (see uflex-edge-gateway README).
 #define UFLEX_EDGE_PORT 5000
 #define UFLEX_EDGE_PATH "/api/v1/movement-monitoring/data-records"
 #define UFLEX_DEVICE_ID "uflex-kit-001"
-#define UFLEX_DEVICE_API_KEY "test-api-key-123"
 
 #endif // UFLEX_CONFIG_BUILD_CONFIG_H
