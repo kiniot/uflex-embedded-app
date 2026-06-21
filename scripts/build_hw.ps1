@@ -4,7 +4,8 @@
 
 $ErrorActionPreference = "Stop"
 
-$envFile = Join-Path $PSScriptRoot "..\.env"
+$projectRoot = Join-Path $PSScriptRoot ".."
+$envFile = Join-Path $projectRoot ".env"
 
 if (-not (Test-Path $envFile)) {
     Write-Error "$envFile not found. Copy .env.example to .env and fill in real values."
@@ -21,4 +22,7 @@ Get-Content $envFile | ForEach-Object {
     }
 }
 
+# Run from the project root so PlatformIO finds platformio.ini regardless of the
+# directory the script was invoked from.
+Set-Location $projectRoot
 pio run -e esp32_hw @args

@@ -19,4 +19,7 @@ set -a
 source "$ENV_FILE"
 set +a
 
+# Run from the project root so PlatformIO finds platformio.ini regardless of the
+# directory the script was invoked from.
+cd "$PROJECT_ROOT"
 pio run -e esp32_hw "$@"

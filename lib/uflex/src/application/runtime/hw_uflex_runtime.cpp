@@ -58,6 +58,11 @@ bool HwUflexRuntime::begin() {
 
     if (!bleTelemetryServer.begin()) {
         Serial.println("BLE telemetry server failed to start.");
+    } else {
+        // The advertised name is the kit serial; the MAC is for registration and
+        // diagnostics only, not connection identity (see device-identity-contract).
+        Serial.printf("BLE advertised name=%s MAC=%s\n", UFLEX_DEVICE_ID,
+                      bleTelemetryServer.bleMacAddress().c_str());
     }
 
     return hardwareImuArray.begin();

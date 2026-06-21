@@ -51,13 +51,29 @@ bool BleTelemetryServer::begin() {
     NimBLEService* telemetryService = server->createService(SERVICE_UUID);
     telemetryCharacteristic = telemetryService->createCharacteristic(
         TELEMETRY_CHARACTERISTIC_UUID, NIMBLE_PROPERTY::NOTIFY);
+
+    // Static READ identity characteristic: exposes the kit serial so the app can
+    // confirm it connected to the device it was assigned (see
+    // docs/device-identity-contract.md). The value never changes, so it is set
+    // once here and no pointer is retained.
+    NimBLECharacteristic* serialCharacteristic =
+        telemetryService->createCharacteristic(SERIAL_CHARACTERISTIC_UUID, NIMBLE_PROPERTY::READ);
+    serialCharacteristic->setValue(std::string(config.deviceName));
+
     server->start();
 
     NimBLEAdvertising* advertising = NimBLEDevice::getAdvertising();
+    // Advertise the serial as the device name so the app can discover the kit by
+    // name even on iOS, where the MAC is not exposed.
+    advertising->setName(config.deviceName);
     advertising->addServiceUUID(SERVICE_UUID);
     advertising->start();
 
     return true;
+}
+
+std::string BleTelemetryServer::bleMacAddress() const {
+    return NimBLEDevice::getAddress().toString();
 }
 
 bool BleTelemetryServer::isReady() const {
