@@ -74,6 +74,15 @@ static_assert(
 // Shared edge gateway contract (see uflex-edge-gateway README).
 #define UFLEX_EDGE_PORT 5000
 #define UFLEX_EDGE_PATH "/api/v1/movement-monitoring/data-records"
-#define UFLEX_DEVICE_ID "uflex-kit-001"
+
+// kitSerial: the device's cross-service identity (== edge device_id, == backend
+// serialNumber, == the value of the BLE serial characteristic). It is NOT the
+// backend DeviceId (UUID). See docs/device-identity-contract.md.
+#define UFLEX_SERIAL_NUMBER "uflex-kit-001"
+
+// BLE advertised name (transport only). May legitimately differ from the serial
+// (e.g. a shorter name to fit the advertisement); discovery is by service UUID,
+// not by name. Kept equal to the serial for now.
+#define UFLEX_BLE_ADVERTISED_NAME "uflex-kit-001"
 
 #endif // UFLEX_CONFIG_BUILD_CONFIG_H

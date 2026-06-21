@@ -18,12 +18,11 @@
  * BleTelemetryServer advertises a single custom GATT service with two
  * characteristics: a NOTIFY telemetry characteristic that streams each
  * BleMotionTelemetry frame to the connected mobile app, and a READ identity
- * characteristic exposing the kit serial (== advertised name) so the app can
- * confirm it connected to the device it was assigned. The serial is also set
- * as the advertised name so the app can discover the kit by name (the only
- * reliable selector on iOS, where the MAC is hidden). See
- * docs/device-identity-contract.md. It is the esp32_hw-only counterpart to
- * NoOpBleTransport.
+ * characteristic exposing the kit serial so the app can confirm it connected to
+ * the device it was assigned. The serial (identity) and the advertised name
+ * (transport) are independent: discovery is by service UUID, so the advertised
+ * name may differ from the serial. See docs/device-identity-contract.md. It is
+ * the esp32_hw-only counterpart to NoOpBleTransport.
  *
  * @author Salim Ramirez
  * @date June 21, 2026
@@ -32,10 +31,11 @@
 class BleTelemetryServer : public BleTransport {
 public:
     /**
-     * @brief Describes the advertising identity for this peripheral.
+     * @brief Describes this peripheral's identity and advertised name.
      */
     struct Config {
-        const char* deviceName;
+        const char* serialNumber;    ///< Kit serial; value of the serial characteristic (identity).
+        const char* advertisedName;  ///< Name broadcast over BLE (transport; may differ from serial).
     };
 
     explicit BleTelemetryServer(Config config);

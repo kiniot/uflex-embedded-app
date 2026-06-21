@@ -42,7 +42,7 @@ bool BleTelemetryServer::ConnectionTracker::hasConnectedCentral() const {
 BleTelemetryServer::BleTelemetryServer(Config config) : config(config) {}
 
 bool BleTelemetryServer::begin() {
-    NimBLEDevice::init(config.deviceName);
+    NimBLEDevice::init(config.advertisedName);
     NimBLEDevice::setMTU(PREFERRED_MTU);
 
     server = NimBLEDevice::createServer();
@@ -58,14 +58,14 @@ bool BleTelemetryServer::begin() {
     // once here and no pointer is retained.
     NimBLECharacteristic* serialCharacteristic =
         telemetryService->createCharacteristic(SERIAL_CHARACTERISTIC_UUID, NIMBLE_PROPERTY::READ);
-    serialCharacteristic->setValue(std::string(config.deviceName));
+    serialCharacteristic->setValue(std::string(config.serialNumber));
 
     server->start();
 
     NimBLEAdvertising* advertising = NimBLEDevice::getAdvertising();
-    // Advertise the serial as the device name so the app can discover the kit by
-    // name even on iOS, where the MAC is not exposed.
-    advertising->setName(config.deviceName);
+    // The service UUID is the reliable discovery filter; the advertised name is a
+    // transport convenience and may differ from the serial (see device-identity-contract).
+    advertising->setName(config.advertisedName);
     advertising->addServiceUUID(SERVICE_UUID);
     advertising->start();
 

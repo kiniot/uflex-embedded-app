@@ -32,8 +32,8 @@ HwUflexRuntime::HwUflexRuntime()
       statusLed(RGB_RED_PIN, RGB_GREEN_PIN, RGB_BLUE_PIN),
       vibrationMotor(VIBRATION_MOTOR_PIN),
       edgeClient({UFLEX_WIFI_SSID, UFLEX_WIFI_PASSWORD, UFLEX_WIFI_CHANNEL, UFLEX_EDGE_HOST,
-                  UFLEX_EDGE_PORT, UFLEX_EDGE_PATH, UFLEX_DEVICE_ID, UFLEX_DEVICE_API_KEY}),
-      bleTelemetryServer({UFLEX_DEVICE_ID}) {}
+                  UFLEX_EDGE_PORT, UFLEX_EDGE_PATH, UFLEX_SERIAL_NUMBER, UFLEX_DEVICE_API_KEY}),
+      bleTelemetryServer({UFLEX_SERIAL_NUMBER, UFLEX_BLE_ADVERTISED_NAME}) {}
 
 bool HwUflexRuntime::begin() {
     statusBuzzer.begin();
@@ -59,10 +59,10 @@ bool HwUflexRuntime::begin() {
     if (!bleTelemetryServer.begin()) {
         Serial.println("BLE telemetry server failed to start.");
     } else {
-        // The advertised name is the kit serial; the MAC is for registration and
+        // Serial = identity; advertised name = transport; MAC = for registration and
         // diagnostics only, not connection identity (see device-identity-contract).
-        Serial.printf("BLE advertised name=%s MAC=%s\n", UFLEX_DEVICE_ID,
-                      bleTelemetryServer.bleMacAddress().c_str());
+        Serial.printf("BLE serial=%s advertisedName=%s MAC=%s\n", UFLEX_SERIAL_NUMBER,
+                      UFLEX_BLE_ADVERTISED_NAME, bleTelemetryServer.bleMacAddress().c_str());
     }
 
     return hardwareImuArray.begin();

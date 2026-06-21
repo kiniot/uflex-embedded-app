@@ -27,15 +27,18 @@ either have it baked in at provisioning time, or they learn it at runtime.
 The following values are, at all times, the **same string**:
 
 ```
-UFLEX_DEVICE_ID            (embedded build flag)
+UFLEX_SERIAL_NUMBER        (embedded #define; value of the BLE serial characteristic)
   == Device.serialNumber     (backend device registry)
-  == Device.advertisedName   (what the firmware advertises over BLE)
   == TherapySession.iotDeviceId  (backend therapy context)
   == device_id               (edge gateway credential / movement records)
 ```
 
 If this chain breaks at any point, the physical device can no longer be tied
 to its session or its measurements.
+
+Note that `advertisedName` (the BLE broadcast name) is **not** part of this
+identity chain — it is a transport detail that may differ from the serial (see
+§2 and §4).
 
 ---
 
@@ -52,7 +55,7 @@ to its session or its measurements.
 | Identifier | Type | Role | Crosses services? |
 |------------|------|------|-------------------|
 | `macAddress` | `XX:XX:XX:XX:XX:XX` | BLE-level address. Used by the mobile app **on Android only** to connect/reconnect, and stored in the backend registry. **Not usable on iOS** (Apple hides it). The edge does not use it. | No |
-| `advertisedName` | string | What the firmware puts in the BLE advertisement. **Must equal `kitSerial`** so the app can find the assigned device by name (works on iOS and Android). | No (but equals `kitSerial`) |
+| `advertisedName` | string (≤ 26 chars) | The BLE broadcast name (firmware `UFLEX_BLE_ADVERTISED_NAME`). **Transport only — may differ from `kitSerial`.** Discovery is by service UUID, not by name, so the name is not load-bearing; it is registry metadata with a BLE-size limit. | No |
 | `DeviceId` | UUID v7 | Backend-internal surrogate primary key for the `Device` aggregate. **Never** leaves the backend; never used as the device handle by embedded/edge/mobile. | No |
 | `api_key` | string | Per-kit shared secret for edge authentication (`X-API-Key`). A credential, not an identifier. | No |
 
@@ -69,9 +72,11 @@ optimization and a registry/debugging attribute only.
 The provisioning authority mints `kitSerial` once per physical kit and writes
 it to four sinks in a single provisioning action (ideally via one script):
 
-1. **Firmware** — as the `UFLEX_DEVICE_ID` build flag at flash time.
-2. **Backend** — `POST /api/v1/devices` with `serialNumber = kitSerial`
-   (and `advertisedName = kitSerial`).
+1. **Firmware** — as the `UFLEX_SERIAL_NUMBER` `#define` at flash time. The BLE
+   broadcast name is a separate `UFLEX_BLE_ADVERTISED_NAME` `#define`.
+2. **Backend** — `POST /api/v1/devices` with `serialNumber = kitSerial`.
+   `advertisedName` is optional and defaults to the serial when omitted; it may
+   be set to a different (≤ 26-char) value.
 3. **Edge gateway** — a provisioned credential row (`device_id = kitSerial`
    plus its `api_key`).
 4. **Physical label** — printed on the kit for humans/support.
@@ -80,7 +85,7 @@ it to four sinks in a single provisioning action (ideally via one script):
 
 | Component | How it knows `kitSerial` |
 |-----------|--------------------------|
-| **Embedded** | Compiled into the binary (`UFLEX_DEVICE_ID`). It is the **emitter**: it advertises it over BLE and sends it on every edge request. |
+| **Embedded** | Compiled into the binary (`UFLEX_SERIAL_NUMBER`). It is the **emitter**: it exposes it on the BLE serial characteristic and sends it on every edge request. |
 | **Edge** | Provisioned row in its database; matches the incoming `device_id` against it to authenticate. |
 | **Backend** | Registered `Device` row; exposed as `serialNumber`, reused by therapy as `iotDeviceId`. |
 | **Mobile** | **Learned at runtime** via `GET /api/v1/devices/my-assigned`, which returns the assigned device's `serialNumber` (+ `macAddress`, `advertisedName`). The app never hardcodes it. |
@@ -93,13 +98,13 @@ These are two distinct moments and must not be conflated.
 
 ### Discovery (during the scan, before connecting)
 
-The mobile app finds and selects the device using only what is in the
-advertisement:
+The mobile app finds the device by the custom **Service UUID** in the
+advertisement → only uFlex kits appear. The service UUID is the reliable filter
+because the device name often does not fit alongside the 128-bit service UUID in
+the 31-byte advertisement. The advertised name is only an optional fallback; the
+authoritative selection happens at confirmation (below).
 
-1. **Filter** by the custom **Service UUID** → only uFlex kits appear.
-2. **Select** the assigned one by **`advertisedName` (== `kitSerial`)**.
-
-This works on both iOS and Android and is already covered by the firmware.
+This works on both iOS and Android.
 
 ### Confirmation (after connecting)
 
@@ -115,7 +120,7 @@ is the authoritative match.
 | Service | `a1f7b2c0-3e4d-4a5b-8c6d-1f2e3a4b5c6d` | Advertised; lets the app filter for uFlex kits. |
 | Telemetry characteristic | `a1f7b2c1-3e4d-4a5b-8c6d-1f2e3a4b5c6d` (NOTIFY) | 53-byte motion telemetry frame. |
 | Identity characteristic | `a1f7b2c2-3e4d-4a5b-8c6d-1f2e3a4b5c6d` (READ) | Returns `kitSerial` so the app can confirm device identity. |
-| Advertised name | `kitSerial` | Discovery filter; equals `advertisedName` in the registry. |
+| Advertised name | `UFLEX_BLE_ADVERTISED_NAME` | Transport only; optional fallback selector, not the discovery filter. May differ from `kitSerial`. |
 
 The backend's `DeviceId` (UUID) is **never** exposed over BLE. At the BLE
 layer, the device identity **is** `kitSerial`.
@@ -162,6 +167,7 @@ These are known gaps that depend on identity being settled first:
 | Who generates it? | The provisioning authority, once per kit |
 | Where does the backend get it? | Imported at registration (it generates `DeviceId`, not `serialNumber`) |
 | How does mobile know it? | `GET /api/v1/devices/my-assigned` at runtime |
-| How does mobile find the device over BLE? | Scan by Service UUID, select by advertised name (== serial) |
+| How does mobile find the device over BLE? | Scan by Service UUID (advertised name is only a fallback) |
 | How does mobile confirm the right device? | Read the identity characteristic (== serial); MAC only as Android optimization |
+| Is `advertisedName` part of identity? | No — transport only, may differ from the serial (≤ 26 chars) |
 | Does the backend UUID go over BLE / to the edge? | No — backend-internal only |
