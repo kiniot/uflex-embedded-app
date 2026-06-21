@@ -164,9 +164,13 @@ bool Mpu9250ImuArray::readMagnetometer(ImuBinding& binding, int16_t& magX, int16
         return false;
     }
 
-    magX = readLittleEndianInt16(rawData, 0);
-    magY = readLittleEndianInt16(rawData, 2);
-    magZ = readLittleEndianInt16(rawData, 4);
+    // The AK8963 die is mounted rotated relative to the MPU9250's own accelerometer/gyroscope
+    // die, so its raw axes do not match theirs. The datasheet-documented remap is: magnetometer
+    // X/Y are swapped, and Z is inverted, relative to the accelerometer/gyroscope frame. Applying
+    // it here keeps every ImuSample field expressed in the same axis frame for the domain layer.
+    magX = readLittleEndianInt16(rawData, 2);
+    magY = readLittleEndianInt16(rawData, 0);
+    magZ = static_cast<int16_t>(-readLittleEndianInt16(rawData, 4));
     return true;
 }
 
