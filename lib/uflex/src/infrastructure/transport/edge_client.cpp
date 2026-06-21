@@ -4,11 +4,11 @@
 
 /**
  * @file edge_client.cpp
- * @brief Implements the WiFi/HTTP transport to the uFlex Edge Gateway.
+ * @brief Implements the EdgeTransport for the uFlex Edge Gateway.
  *
- * The client manages the WiFi association and posts each flexion angle as a
- * JSON data record authenticated with the device API key, matching the gateway
- * contract documented in the uflex-edge-gateway repository.
+ * EdgeClient reuses MotionPayloadSerializer to build the motion portion of the
+ * request body, then wraps it with the device identity expected by the
+ * gateway's authenticated data-records endpoint.
  *
  * @author Salim Ramirez
  * @date June 16, 2026
@@ -19,66 +19,52 @@
 
 #include <Arduino.h>
 #include <HTTPClient.h>
-#include <WiFi.h>
+#include <stdio.h>
 
-EdgeClient::EdgeClient(const EdgeEndpoint& endpoint) : endpoint(endpoint) {}
+#include "uflex/infrastructure/transport/motion_payload_serializer.h"
 
-bool EdgeClient::begin(unsigned long timeoutMs) {
-    Serial.printf("WiFi: connecting to \"%s\"...\n", endpoint.wifiSsid);
+EdgeClient::EdgeClient(const EdgeEndpoint& endpoint)
+    : endpoint(endpoint),
+      wifiConnection(endpoint.wifiSsid, endpoint.wifiPassword, endpoint.wifiChannel),
+      restClient(wifiConnection, endpoint.host, endpoint.port) {}
 
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(endpoint.wifiSsid, endpoint.wifiPassword, endpoint.wifiChannel);
-
-    const unsigned long startedAt = millis();
-    while (WiFi.status() != WL_CONNECTED) {
-        if (millis() - startedAt >= timeoutMs) {
-            Serial.println("WiFi: connection timed out");
-            return false;
-        }
-        delay(250);
-        Serial.print('.');
-    }
-
-    Serial.printf("\nWiFi: connected, IP=%s\n", WiFi.localIP().toString().c_str());
-    return true;
+bool EdgeClient::begin() {
+    return wifiConnection.begin();
 }
 
-bool EdgeClient::isConnected() const {
-    return WiFi.status() == WL_CONNECTED;
+bool EdgeClient::isReady() const {
+    return wifiConnection.isConnected();
 }
 
-bool EdgeClient::publishAngle(float angleDegrees) {
-    if (!isConnected()) {
+bool EdgeClient::publish(const MotionPayload& payload) {
+    if (!isReady()) {
         Serial.println("edge: skipped publish (WiFi not connected)");
         return false;
     }
 
-    char url[128] = {};
-    snprintf(url, sizeof(url), "http://%s:%u%s", endpoint.host, endpoint.port, endpoint.path);
-
-    char body[128] = {};
-    snprintf(body, sizeof(body), "{\"device_id\":\"%s\",\"angle\":%.2f}", endpoint.deviceId,
-             angleDegrees);
-
-    HTTPClient http;
-    if (!http.begin(url)) {
-        Serial.println("edge: failed to initialize HTTP request");
+    char motionJson[REQUEST_BODY_BUFFER_SIZE] = {};
+    if (MotionPayloadSerializer::toJson(payload, motionJson, sizeof(motionJson)) < 0) {
+        Serial.println("edge: skipped publish (payload serialization failed)");
         return false;
     }
 
-    http.addHeader("Content-Type", "application/json");
-    http.addHeader("X-API-Key", endpoint.apiKey);
-
-    const int statusCode = http.POST(reinterpret_cast<uint8_t*>(body), strlen(body));
-    const bool accepted = statusCode == HTTP_CODE_OK || statusCode == HTTP_CODE_CREATED;
-
-    if (accepted) {
-        Serial.printf("edge: angle=%.2f published (HTTP %d)\n", angleDegrees, statusCode);
-    } else {
-        Serial.printf("edge: publish failed (HTTP %d): %s\n", statusCode,
-                      http.getString().c_str());
+    char body[REQUEST_BODY_BUFFER_SIZE] = {};
+    const int written = snprintf(body, sizeof(body), "{\"device_id\":\"%s\",\"motion\":%s}",
+                                  endpoint.deviceId, motionJson);
+    if (written < 0 || static_cast<size_t>(written) >= sizeof(body)) {
+        Serial.println("edge: skipped publish (request body too large)");
+        return false;
     }
 
-    http.end();
+    const RestResponse response = restClient.post(endpoint.path, body, endpoint.apiKey);
+    const bool accepted =
+        response.statusCode == HTTP_CODE_OK || response.statusCode == HTTP_CODE_CREATED;
+
+    if (accepted) {
+        Serial.printf("edge: payload published (HTTP %d)\n", response.statusCode);
+    } else {
+        Serial.printf("edge: publish failed (HTTP %d)\n", response.statusCode);
+    }
+
     return accepted;
 }

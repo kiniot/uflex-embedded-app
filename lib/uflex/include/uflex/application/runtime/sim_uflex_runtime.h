@@ -12,6 +12,7 @@
 #include "uflex/infrastructure/adapters/common/gpio_rgb_led.h"
 #include "uflex/infrastructure/adapters/common/gpio_vibration_motor.h"
 #include "uflex/infrastructure/adapters/sim/simulated_imu_array.h"
+#include "uflex/infrastructure/transport/edge_client.h"
 
 /**
  * @file sim_uflex_runtime.h
@@ -33,6 +34,7 @@ public:
     bool update() override;
     void applyOutputs() override;
     UflexDevice& getDevice() override;
+    EdgeTransport& getEdgeTransport() override;
 
 private:
     static constexpr uint8_t BUZZER_PIN = 27;
@@ -51,6 +53,7 @@ private:
     GpioActiveBuzzer statusBuzzer;
     GpioRgbLed statusLed;
     GpioVibrationMotor vibrationMotor;
+    EdgeClient edgeClient;
 };
 
 #endif // UFLEX_APPLICATION_RUNTIME_SIM_UFLEX_RUNTIME_H

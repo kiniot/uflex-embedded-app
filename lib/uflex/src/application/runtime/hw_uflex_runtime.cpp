@@ -6,6 +6,8 @@
 
 #include <Arduino.h>
 
+#include "config/build_config.h"
+
 /**
  * @file hw_uflex_runtime.cpp
  * @brief Implements the hardware runtime for uFlex.
@@ -28,7 +30,9 @@ HwUflexRuntime::HwUflexRuntime()
                        {device.getLowerImu(), secondaryBus}),
       statusBuzzer(BUZZER_PIN),
       statusLed(RGB_RED_PIN, RGB_GREEN_PIN, RGB_BLUE_PIN),
-      vibrationMotor(VIBRATION_MOTOR_PIN) {}
+      vibrationMotor(VIBRATION_MOTOR_PIN),
+      edgeClient({UFLEX_WIFI_SSID, UFLEX_WIFI_PASSWORD, UFLEX_WIFI_CHANNEL, UFLEX_EDGE_HOST,
+                  UFLEX_EDGE_PORT, UFLEX_EDGE_PATH, UFLEX_DEVICE_ID, UFLEX_DEVICE_API_KEY}) {}
 
 bool HwUflexRuntime::begin() {
     statusBuzzer.begin();
@@ -47,6 +51,10 @@ bool HwUflexRuntime::begin() {
     Serial.println("Hardware integration is preliminary and still needs physical validation.");
     applyOutputs();
 
+    if (!edgeClient.begin()) {
+        Serial.println("Edge gateway unreachable; continuing without network publishing.");
+    }
+
     return hardwareImuArray.begin();
 }
 
@@ -62,4 +70,8 @@ void HwUflexRuntime::applyOutputs() {
 
 UflexDevice& HwUflexRuntime::getDevice() {
     return device;
+}
+
+EdgeTransport& HwUflexRuntime::getEdgeTransport() {
+    return edgeClient;
 }
