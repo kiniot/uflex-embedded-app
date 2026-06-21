@@ -187,3 +187,51 @@ Puedes activar la sincronización utilizando la interfaz gráfica (recomendado) 
   ```bash
   pio project init --ide clion
   ```
+
+---
+
+## 7. Secretos de Despliegue en Hardware (WiFi y Edge Gateway)
+
+El target `esp32_hw` necesita credenciales reales de WiFi y la API key del edge
+gateway para que el transporte `EdgeClient` pueda alcanzarlo. Estos valores
+**no** están hardcodeados en `include/config/build_config.h`; se inyectan en
+tiempo de compilación como build flags para que nunca queden commiteados al
+repositorio. El target `esp32_sim` no se ve afectado y mantiene sus valores
+públicos de Wokwi sin cambios.
+
+1. **Copia el archivo de ejemplo**:
+   ```bash
+   cp .env.example .env
+   ```
+2. **Llena los valores reales** en `.env` (este archivo está ignorado por git):
+   ```bash
+   UFLEX_WIFI_SSID=TuRedWifiReal
+   UFLEX_WIFI_PASSWORD=TuContraseñaWifiReal
+   UFLEX_EDGE_HOST=192.168.1.100
+   UFLEX_DEVICE_API_KEY=tu-api-key-real
+   ```
+3. **Compila usando el script wrapper de tu plataforma**, que carga `.env` y
+   ejecuta PlatformIO por ti:
+
+   * **macOS / Linux:**
+     ```bash
+     ./scripts/build_hw.sh
+     ```
+   * **Windows (PowerShell):**
+     ```powershell
+     .\scripts\build_hw.ps1
+     ```
+
+   Cualquier argumento adicional se reenvía a `pio run`, por ejemplo para
+   también subir el firmware:
+   ```bash
+   ./scripts/build_hw.sh -t upload
+   ```
+   ```powershell
+   .\scripts\build_hw.ps1 -t upload
+   ```
+
+Si ejecutas `pio run -e esp32_hw` directamente sin cargar `.env` primero, la
+compilación falla con un error claro en tiempo de compilación (un
+`static_assert` en `build_config.h`) que indica la variable faltante, en lugar
+de generar firmware silenciosamente con credenciales vacías.
