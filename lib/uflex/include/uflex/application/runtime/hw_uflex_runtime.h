@@ -12,6 +12,7 @@
 #include "uflex/infrastructure/adapters/common/gpio_rgb_led.h"
 #include "uflex/infrastructure/adapters/common/gpio_vibration_motor.h"
 #include "uflex/infrastructure/adapters/hw/mpu9250_imu_array.h"
+#include "uflex/infrastructure/transport/ble_telemetry_server.h"
 #include "uflex/infrastructure/transport/edge_client.h"
 
 /**
@@ -35,6 +36,7 @@ public:
     void applyOutputs() override;
     UflexDevice& getDevice() override;
     EdgeTransport& getEdgeTransport() override;
+    BleTransport& getBleTransport() override;
 
 private:
     static constexpr uint8_t BUZZER_PIN = 27;
@@ -54,6 +56,7 @@ private:
     GpioRgbLed statusLed;
     GpioVibrationMotor vibrationMotor;
     EdgeClient edgeClient;
+    BleTelemetryServer bleTelemetryServer;
 };
 
 #endif // UFLEX_APPLICATION_RUNTIME_HW_UFLEX_RUNTIME_H

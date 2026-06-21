@@ -29,7 +29,11 @@
  */
 
 UflexApplication::UflexApplication(UflexRuntime& runtime)
-    : runtime(runtime), lastReadAt(0), lastEdgePublishAt(0) {}
+    : runtime(runtime),
+      lastReadAt(0),
+      lastEdgePublishAt(0),
+      lastOrientationUpdateAt(0),
+      hasOrientationBaseline(false) {}
 
 void UflexApplication::begin() {
     Serial.printf("uFlex motion probe (%s target)\n", UFLEX_BUILD_TARGET_NAME);
@@ -49,12 +53,28 @@ void UflexApplication::loop() {
     lastReadAt = now;
 
     if (runtime.update()) {
+        advanceOrientationFilters();
         pulseBuzzer(1);
         pulseVibrationMotor(1);
         runtime.getDevice().handle(RgbLed::ADVANCE_COLOR_COMMAND);
         runtime.applyOutputs();
         logAllSamples();
     }
+}
+
+void UflexApplication::advanceOrientationFilters() {
+    const unsigned long now = millis();
+
+    if (!hasOrientationBaseline) {
+        lastOrientationUpdateAt = now;
+        hasOrientationBaseline = true;
+        return;
+    }
+
+    const float deltaTimeSeconds = static_cast<float>(now - lastOrientationUpdateAt) / 1000.0f;
+    lastOrientationUpdateAt = now;
+
+    runtime.getDevice().updateOrientations(deltaTimeSeconds);
 }
 
 void UflexApplication::logSample(const char* label, const ImuSample& sample, uint8_t address) {

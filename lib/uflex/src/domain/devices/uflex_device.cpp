@@ -17,6 +17,8 @@
 
 #include "uflex/domain/devices/uflex_device.h"
 
+#include "uflex/domain/services/relative_rotation_calculator.h"
+
 UflexDevice::UflexDevice(ImuConfig upperImuConfig, ImuConfig middleImuConfig,
                          ImuConfig lowerImuConfig)
     : upperImu(upperImuConfig.imuId, upperImuConfig.i2cAddress, this),
@@ -27,7 +29,10 @@ UflexDevice::UflexDevice(ImuConfig upperImuConfig, ImuConfig middleImuConfig,
       vibrationMotor(this),
       upperMiddleAngle{0.0f, 0.0f},
       middleLowerAngle{0.0f, 0.0f},
-      upperLowerAngle{0.0f, 0.0f} {}
+      upperLowerAngle{0.0f, 0.0f},
+      upperMiddleRotation(Quaternion::identity()),
+      middleLowerRotation(Quaternion::identity()),
+      upperLowerRotation(Quaternion::identity()) {}
 
 void UflexDevice::on(Event event) {
     if (event == Imu::MOTION_DETECTED_EVENT) {
@@ -44,6 +49,19 @@ void UflexDevice::on(Event event) {
             lowerImu.getLastSample()
         );
     }
+}
+
+void UflexDevice::updateOrientations(float deltaTimeSeconds) {
+    const Quaternion upperOrientation =
+        upperOrientationFilter.update(upperImu.getLastSample(), deltaTimeSeconds);
+    const Quaternion middleOrientation =
+        middleOrientationFilter.update(middleImu.getLastSample(), deltaTimeSeconds);
+    const Quaternion lowerOrientation =
+        lowerOrientationFilter.update(lowerImu.getLastSample(), deltaTimeSeconds);
+
+    upperMiddleRotation = RelativeRotationCalculator::calculate(upperOrientation, middleOrientation);
+    middleLowerRotation = RelativeRotationCalculator::calculate(middleOrientation, lowerOrientation);
+    upperLowerRotation = RelativeRotationCalculator::calculate(upperOrientation, lowerOrientation);
 }
 
 void UflexDevice::handle(Command command) {
@@ -88,6 +106,18 @@ RelativeAngle UflexDevice::getUpperLowerAngle() const {
     return upperLowerAngle;
 }
 
+Quaternion UflexDevice::getUpperMiddleRotation() const {
+    return upperMiddleRotation;
+}
+
+Quaternion UflexDevice::getMiddleLowerRotation() const {
+    return middleLowerRotation;
+}
+
+Quaternion UflexDevice::getUpperLowerRotation() const {
+    return upperLowerRotation;
+}
+
 MotionState UflexDevice::getMotionState() const {
     return MotionState{
         upperImu.getLastSample(),
@@ -96,5 +126,8 @@ MotionState UflexDevice::getMotionState() const {
         upperMiddleAngle,
         middleLowerAngle,
         upperLowerAngle,
+        upperMiddleRotation,
+        middleLowerRotation,
+        upperLowerRotation,
     };
 }

@@ -12,6 +12,8 @@
 #include "uflex/domain/actuators/rgb_led.h"
 #include "uflex/domain/actuators/vibration_motor.h"
 #include "uflex/domain/devices/motion_state.h"
+#include "uflex/domain/math/quaternion.h"
+#include "uflex/domain/services/orientation_filter.h"
 #include "uflex/domain/services/relative_angle_calculator.h"
 #include "uflex/domain/sensors/imu.h"
 
@@ -38,6 +40,12 @@ private:
     RelativeAngle upperMiddleAngle;
     RelativeAngle middleLowerAngle;
     RelativeAngle upperLowerAngle;
+    OrientationFilter upperOrientationFilter;
+    OrientationFilter middleOrientationFilter;
+    OrientationFilter lowerOrientationFilter;
+    Quaternion upperMiddleRotation;
+    Quaternion middleLowerRotation;
+    Quaternion upperLowerRotation;
 
 public:
     /**
@@ -58,6 +66,18 @@ public:
      * @brief Handles propagated domain events.
      */
     void on(Event event) override;
+
+    /**
+     * @brief Fuses each IMU's latest sample into its orientation filter and
+     * recalculates the relative joint rotations.
+     *
+     * This is driven explicitly by the application loop (rather than reactively
+     * by IMU events) because the underlying filter needs the elapsed time since
+     * its previous call, which only the loop cadence knows.
+     *
+     * @param deltaTimeSeconds Elapsed time since the previous call, in seconds.
+     */
+    void updateOrientations(float deltaTimeSeconds);
 
     /**
      * @brief Handles device-level commands.
@@ -108,6 +128,21 @@ public:
      * @brief Returns the relative angle between the upper and lower IMUs.
      */
     RelativeAngle getUpperLowerAngle() const;
+
+    /**
+     * @brief Returns the fused relative rotation between the upper and middle IMUs.
+     */
+    Quaternion getUpperMiddleRotation() const;
+
+    /**
+     * @brief Returns the fused relative rotation between the middle and lower IMUs.
+     */
+    Quaternion getMiddleLowerRotation() const;
+
+    /**
+     * @brief Returns the fused relative rotation between the upper and lower IMUs.
+     */
+    Quaternion getUpperLowerRotation() const;
 
     /**
      * @brief Returns the current aggregated motion state.

@@ -74,3 +74,7 @@ UflexDevice& SimUflexRuntime::getDevice() {
 EdgeTransport& SimUflexRuntime::getEdgeTransport() {
     return edgeClient;
 }
+
+BleTransport& SimUflexRuntime::getBleTransport() {
+    return bleTransport;
+}

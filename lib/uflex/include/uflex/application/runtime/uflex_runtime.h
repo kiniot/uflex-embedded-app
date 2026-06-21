@@ -6,6 +6,7 @@
 #define UFLEX_APPLICATION_RUNTIME_UFLEX_RUNTIME_H
 
 #include "uflex/domain/devices/uflex_device.h"
+#include "uflex/infrastructure/transport/ble_transport.h"
 #include "uflex/infrastructure/transport/edge_transport.h"
 
 /**
@@ -14,8 +15,8 @@
  *
  * UflexRuntime defines the small contract used by the application layer to
  * initialize the active environment, advance it during the firmware loop, and
- * expose the shared domain device and edge transport independently of
- * whether the target is simulation or real hardware.
+ * expose the shared domain device, edge transport, and BLE transport
+ * independently of whether the target is simulation or real hardware.
  *
  * @author Salim Ramirez
  * @date June 8, 2026
@@ -28,6 +29,7 @@ public:
     virtual void applyOutputs() = 0;
     virtual UflexDevice& getDevice() = 0;
     virtual EdgeTransport& getEdgeTransport() = 0;
+    virtual BleTransport& getBleTransport() = 0;
     virtual ~UflexRuntime() = default;
 };
 

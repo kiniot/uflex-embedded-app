@@ -41,12 +41,15 @@ private:
     UflexRuntime& runtime;
     unsigned long lastReadAt;
     unsigned long lastEdgePublishAt;
+    unsigned long lastOrientationUpdateAt;
+    bool hasOrientationBaseline;
 
     static void logSample(const char* label, const ImuSample& sample, uint8_t address);
     void pulseBuzzer(size_t pulseCount);
     void pulseVibrationMotor(size_t pulseCount);
     void logAllSamples();
     void publishToEdgeIfDue(const MotionPayload& motionPayload);
+    void advanceOrientationFilters();
 };
 
 #endif // UFLEX_APPLICATION_UFLEX_APPLICATION_H

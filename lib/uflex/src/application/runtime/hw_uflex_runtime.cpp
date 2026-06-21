@@ -32,7 +32,8 @@ HwUflexRuntime::HwUflexRuntime()
       statusLed(RGB_RED_PIN, RGB_GREEN_PIN, RGB_BLUE_PIN),
       vibrationMotor(VIBRATION_MOTOR_PIN),
       edgeClient({UFLEX_WIFI_SSID, UFLEX_WIFI_PASSWORD, UFLEX_WIFI_CHANNEL, UFLEX_EDGE_HOST,
-                  UFLEX_EDGE_PORT, UFLEX_EDGE_PATH, UFLEX_DEVICE_ID, UFLEX_DEVICE_API_KEY}) {}
+                  UFLEX_EDGE_PORT, UFLEX_EDGE_PATH, UFLEX_DEVICE_ID, UFLEX_DEVICE_API_KEY}),
+      bleTelemetryServer({UFLEX_DEVICE_ID}) {}
 
 bool HwUflexRuntime::begin() {
     statusBuzzer.begin();
@@ -55,6 +56,10 @@ bool HwUflexRuntime::begin() {
         Serial.println("Edge gateway unreachable; continuing without network publishing.");
     }
 
+    if (!bleTelemetryServer.begin()) {
+        Serial.println("BLE telemetry server failed to start.");
+    }
+
     return hardwareImuArray.begin();
 }
 
@@ -74,4 +79,8 @@ UflexDevice& HwUflexRuntime::getDevice() {
 
 EdgeTransport& HwUflexRuntime::getEdgeTransport() {
     return edgeClient;
+}
+
+BleTransport& HwUflexRuntime::getBleTransport() {
+    return bleTelemetryServer;
 }
