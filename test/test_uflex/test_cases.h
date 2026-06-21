@@ -6,5 +6,9 @@ void runMotionStateTests();
 void runRelativeAngleCalculatorTests();
 void runUflexDeviceTests();
 void runMotionPayloadTests();
+void runQuaternionTests();
+void runOrientationFilterTests();
+void runRelativeRotationCalculatorTests();
+void runBleMotionTelemetryTests();
 
 #endif // UFLEX_TEST_CASES_H

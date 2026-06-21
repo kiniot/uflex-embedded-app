@@ -11,6 +11,7 @@
 #include "uflex/domain/actuators/rgb_led.h"
 #include "uflex/domain/actuators/vibration_motor.h"
 #include "uflex/domain/devices/motion_state.h"
+#include "uflex/infrastructure/transport/ble_motion_telemetry_mapper.h"
 #include "uflex/infrastructure/transport/motion_payload.h"
 #include "uflex/infrastructure/transport/motion_payload_mapper.h"
 #include "uflex/infrastructure/transport/motion_payload_serializer.h"
@@ -33,7 +34,9 @@ UflexApplication::UflexApplication(UflexRuntime& runtime)
       lastReadAt(0),
       lastEdgePublishAt(0),
       lastOrientationUpdateAt(0),
-      hasOrientationBaseline(false) {}
+      lastSerialLogAt(0),
+      hasOrientationBaseline(false),
+      bleSequenceNumber(0) {}
 
 void UflexApplication::begin() {
     Serial.printf("uFlex motion probe (%s target)\n", UFLEX_BUILD_TARGET_NAME);
@@ -54,11 +57,17 @@ void UflexApplication::loop() {
 
     if (runtime.update()) {
         advanceOrientationFilters();
-        pulseBuzzer(1);
-        pulseVibrationMotor(1);
-        runtime.getDevice().handle(RgbLed::ADVANCE_COLOR_COMMAND);
+        // No real feedback policy exists yet (see docs/actuator-activation-flow.md, next
+        // steps #5), so nothing issues actuator commands here; applyOutputs() stays so
+        // whatever policy lands later keeps reaching the physical pins every cycle.
         runtime.applyOutputs();
-        logAllSamples();
+
+        const MotionState motionState = runtime.getDevice().getMotionState();
+        const MotionPayload motionPayload = MotionPayloadMapper::map(motionState);
+
+        publishBleTelemetry(motionState);
+        publishToEdgeIfDue(motionPayload);
+        logAllSamplesIfDue(motionState, motionPayload);
     }
 }
 
@@ -75,6 +84,19 @@ void UflexApplication::advanceOrientationFilters() {
     lastOrientationUpdateAt = now;
 
     runtime.getDevice().updateOrientations(deltaTimeSeconds);
+}
+
+void UflexApplication::publishBleTelemetry(const MotionState& motionState) {
+    UflexDevice& device = runtime.getDevice();
+    const BleMotionTelemetry telemetry = BleMotionTelemetryMapper::map(
+        motionState, device.getStatusLed().getColor(), device.getStatusBuzzer().isEnabled(),
+        device.getVibrationMotor().isEnabled(), bleSequenceNumber);
+    ++bleSequenceNumber;
+
+    BleTransport& bleTransport = runtime.getBleTransport();
+    if (bleTransport.isReady()) {
+        bleTransport.publish(telemetry);
+    }
 }
 
 void UflexApplication::logSample(const char* label, const ImuSample& sample, uint8_t address) {
@@ -113,15 +135,19 @@ void UflexApplication::pulseVibrationMotor(size_t pulseCount) {
     }
 }
 
-void UflexApplication::logAllSamples() {
-    const MotionState motionState = runtime.getDevice().getMotionState();
+void UflexApplication::logAllSamplesIfDue(const MotionState& motionState,
+                                          const MotionPayload& motionPayload) {
+    const unsigned long now = millis();
+    if (now - lastSerialLogAt < SERIAL_LOG_INTERVAL_MS) {
+        return;
+    }
+    lastSerialLogAt = now;
 
     logSample("imu1", motionState.upperSample, runtime.getDevice().getUpperImu().getI2cAddress());
     logSample("imu2", motionState.middleSample,
               runtime.getDevice().getMiddleImu().getI2cAddress());
     logSample("imu3", motionState.lowerSample, runtime.getDevice().getLowerImu().getI2cAddress());
 
-    const MotionPayload motionPayload = MotionPayloadMapper::map(motionState);
     char payloadBuffer[MOTION_PAYLOAD_BUFFER_SIZE] = {};
 
     Serial.printf("upper-middle: pitch=%.2f roll=%.2f\n",
@@ -140,8 +166,6 @@ void UflexApplication::logAllSamples() {
     } else {
         Serial.println("payload: serialization failed");
     }
-
-    publishToEdgeIfDue(motionPayload);
 
     Serial.println();
 }

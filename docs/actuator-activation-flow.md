@@ -394,7 +394,60 @@ In one sentence:
 
 1. Define a formal active-configuration structure for the embedded device.
 2. Define the `edge -> embedded` message contract.
-3. Define the minimum BLE payload toward the mobile app.
+3. ~~Define the minimum BLE payload toward the mobile app.~~ Done — see section 12.
 4. Define the Wi‑Fi/HTTP payload toward the edge.
 5. Replace the current actuator test behaviors with real clinical or functional criteria.
+
+---
+
+## 12. BLE Telemetry Contract (Implemented)
+
+This section documents the `embedded -> mobile` BLE payload referenced in section 6.1, now implemented in `BleTelemetryServer` (NimBLE-based GATT server) and `BleMotionTelemetrySerializer`.
+
+### 12.1 Why a separate contract from the HTTP payload
+
+`MotionPayload` (the HTTP payload toward the edge, section 6.2) only carries pitch/roll deltas derived from the accelerometer. The mobile app needs full 3-axis relative rotation per joint to drive an avatar that can show motion toward/away from the camera, not just up/down — so BLE telemetry carries quaternions instead, fused from accelerometer + gyroscope + magnetometer through `OrientationFilter` (a Mahony-style explicit complementary filter) and reduced to per-joint relative rotation through `RelativeRotationCalculator`.
+
+### 12.2 GATT profile
+
+- Custom 128-bit Service UUID and Notify Characteristic UUID (see `BleTelemetryServer`); not a SIG-registered profile, since this is private data between our own firmware and our own app.
+- One characteristic, `NOTIFY` only — the mobile app never writes to the embedded over BLE in this version (consistent with section 8.1: `mobile -> embedded` control was explicitly not adopted for this version).
+- Advertised device name: `UFLEX_DEVICE_ID` (currently a compile-time constant; see open question in 12.5 about aligning it with the backend's `Device.advertisedName`).
+- Preferred MTU: 256 bytes, negotiated on connect, so the full payload fits in a single notification instead of fragmenting across three ATT packets.
+
+### 12.3 Wire format (53 bytes, little-endian)
+
+| Offset | Field | Type |
+|---|---|---|
+| 0  | upperMiddleRotation.w | float32 |
+| 4  | upperMiddleRotation.x | float32 |
+| 8  | upperMiddleRotation.y | float32 |
+| 12 | upperMiddleRotation.z | float32 |
+| 16 | middleLowerRotation.w | float32 |
+| 20 | middleLowerRotation.x | float32 |
+| 24 | middleLowerRotation.y | float32 |
+| 28 | middleLowerRotation.z | float32 |
+| 32 | upperLowerRotation.w | float32 |
+| 36 | upperLowerRotation.x | float32 |
+| 40 | upperLowerRotation.y | float32 |
+| 44 | upperLowerRotation.z | float32 |
+| 48 | ledColor | uint8 |
+| 49 | buzzerActive | uint8 (0/1) |
+| 50 | vibrationActive | uint8 (0/1) |
+| 51-52 | sequenceNumber | uint16 |
+
+Fields are written explicitly byte-by-byte (`BleMotionTelemetrySerializer`) rather than copying the raw C++ struct's memory, so the layout is guaranteed regardless of compiler padding/alignment differences between the ESP32 firmware and the mobile app. Both platforms are little-endian, so IEEE-754 floats need no byte-swapping.
+
+`sequenceNumber` is a monotonic counter of produced frames (incremented every read cycle regardless of whether a mobile client is connected), so the app can detect dropped notifications.
+
+### 12.4 Cadence
+
+The embedded read loop (and therefore the BLE publish rate) runs at ~25Hz (`UflexApplication::READ_INTERVAL_MS = 40`), matching the "high frequency" goal from section 6.1. The HTTP channel toward the edge keeps its own, much slower `EDGE_PUBLISH_INTERVAL_MS` (5s), unaffected by this change.
+
+### 12.5 Known simplifications / open items
+
+- **No `sessionActive` field yet.** The embedded has no session/configuration concept to report until next-step #1/#2 above are implemented. Add it to the payload once that contract exists.
+- **No BLE security/pairing.** Open, unencrypted notifications for this MVP; revisit if this becomes more than an academic prototype.
+- **Wokwi does not simulate Bluetooth.** `BleTelemetryServer` only backs `esp32_hw`; `esp32_sim` uses `NoOpBleTransport`, so this channel can only be exercised on real hardware.
+- **Advertised name is a static compile-time constant.** The backend's `Device` aggregate already models `advertisedName`/`macAddress` fields meant to correlate a registered device with its BLE peripheral; if this project scales beyond one prototype kit, the advertised name should come from provisioned configuration instead of a hardcoded constant.
 

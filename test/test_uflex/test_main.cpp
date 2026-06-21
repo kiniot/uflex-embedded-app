@@ -12,6 +12,10 @@ void setup() {
     runRelativeAngleCalculatorTests();
     runUflexDeviceTests();
     runMotionPayloadTests();
+    runQuaternionTests();
+    runOrientationFilterTests();
+    runRelativeRotationCalculatorTests();
+    runBleMotionTelemetryTests();
     UNITY_END();
 }
 
