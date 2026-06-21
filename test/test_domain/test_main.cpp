@@ -1,12 +1,10 @@
-#include <Arduino.h>
 #include <unity.h>
 
 #include "test_cases.h"
 
-void setup() {
-    delay(2000);
+namespace {
 
-    UNITY_BEGIN();
+void runAllSuites() {
     runImuTests();
     runMotionStateTests();
     runRelativeAngleCalculatorTests();
@@ -16,7 +14,30 @@ void setup() {
     runOrientationFilterTests();
     runRelativeRotationCalculatorTests();
     runBleMotionTelemetryTests();
+}
+
+} // namespace
+
+#if defined(ARDUINO)
+
+#include <Arduino.h>
+
+void setup() {
+    delay(2000);
+
+    UNITY_BEGIN();
+    runAllSuites();
     UNITY_END();
 }
 
 void loop() {}
+
+#else
+
+int main(int /*argc*/, char** /*argv*/) {
+    UNITY_BEGIN();
+    runAllSuites();
+    return UNITY_END();
+}
+
+#endif
