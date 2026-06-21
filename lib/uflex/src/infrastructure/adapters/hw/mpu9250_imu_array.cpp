@@ -10,10 +10,10 @@
  * @file mpu9250_imu_array.cpp
  * @brief Implements the preliminary MPU9250 hardware adapter for uFlex.
  *
- * Preliminary MPU9250 hardware adapter for uFlex. It currently reads the shared accelerometer,
- * gyroscope, and temperature register block used to populate the domain ImuSample. Magnetometer
- * support and multiplexer-specific orchestration can be added later without changing the domain
- * contract.
+ * Preliminary MPU9250 hardware adapter for uFlex. It reads the shared accelerometer, gyroscope,
+ * and temperature register block, and additionally enables I2C bypass mode on each MPU9250 so the
+ * AK8963 magnetometer integrated in the same package becomes directly addressable on the bus,
+ * populating the full domain ImuSample contract.
  *
  * @author Salim Ramirez
  * @date June 8, 2026
@@ -68,7 +68,41 @@ bool Mpu9250ImuArray::initializeImu(ImuBinding& binding) {
     }
 
     Serial.printf("MPU9250 [0x%02X] wake-up command sent\n", binding.imu.getI2cAddress());
+
+    if (!enableMagnetometerBypass(binding)) {
+        Serial.printf("MPU9250 [0x%02X] magnetometer bypass failed\n",
+                      binding.imu.getI2cAddress());
+        return false;
+    }
+
+    if (!initializeMagnetometer(binding)) {
+        Serial.printf("MPU9250 [0x%02X] AK8963 magnetometer init failed\n",
+                      binding.imu.getI2cAddress());
+        return false;
+    }
+
+    Serial.printf("MPU9250 [0x%02X] AK8963 magnetometer ready\n", binding.imu.getI2cAddress());
     return true;
+}
+
+bool Mpu9250ImuArray::enableMagnetometerBypass(ImuBinding& binding) {
+    return writeRegister(binding.bus, binding.imu.getI2cAddress(), INT_PIN_CFG_REGISTER,
+                         BYPASS_EN_VALUE);
+}
+
+bool Mpu9250ImuArray::initializeMagnetometer(ImuBinding& binding) {
+    uint8_t whoAmI = 0;
+    if (!readRegisters(binding.bus, AK8963_I2C_ADDRESS, AK8963_WHO_AM_I_REGISTER, &whoAmI, 1)) {
+        return false;
+    }
+
+    if (whoAmI != AK8963_EXPECTED_WHO_AM_I) {
+        Serial.printf("AK8963 unexpected WHO_AM_I value: 0x%02X\n", whoAmI);
+        return false;
+    }
+
+    return writeRegister(binding.bus, AK8963_I2C_ADDRESS, AK8963_CNTL1_REGISTER,
+                         AK8963_CONTINUOUS_MEASUREMENT_16BIT_MODE2);
 }
 
 bool Mpu9250ImuArray::detectImu(ImuBinding& binding, uint8_t& whoAmI) {
@@ -88,6 +122,14 @@ bool Mpu9250ImuArray::updateImu(ImuBinding& binding) {
         return false;
     }
 
+    int16_t magX = 0;
+    int16_t magY = 0;
+    int16_t magZ = 0;
+    if (!readMagnetometer(binding, magX, magY, magZ)) {
+        Serial.printf("MPU9250 [0x%02X] magnetometer read skipped (not ready)\n",
+                      binding.imu.getI2cAddress());
+    }
+
     const ImuSample sample{
         readBigEndianInt16(rawData, 0),
         readBigEndianInt16(rawData, 2),
@@ -96,9 +138,35 @@ bool Mpu9250ImuArray::updateImu(ImuBinding& binding) {
         readBigEndianInt16(rawData, 10),
         readBigEndianInt16(rawData, 12),
         readBigEndianInt16(rawData, 6),
+        magX,
+        magY,
+        magZ,
     };
 
     binding.imu.updateSample(sample);
+    return true;
+}
+
+bool Mpu9250ImuArray::readMagnetometer(ImuBinding& binding, int16_t& magX, int16_t& magY,
+                                       int16_t& magZ) {
+    uint8_t status = 0;
+    if (!readRegisters(binding.bus, AK8963_I2C_ADDRESS, AK8963_ST1_REGISTER, &status, 1)) {
+        return false;
+    }
+
+    if ((status & AK8963_DATA_READY_BIT) == 0) {
+        return false;
+    }
+
+    uint8_t rawData[7] = {};
+    if (!readRegisters(binding.bus, AK8963_I2C_ADDRESS, AK8963_MEASUREMENT_START_REGISTER,
+                       rawData, sizeof(rawData))) {
+        return false;
+    }
+
+    magX = readLittleEndianInt16(rawData, 0);
+    magY = readLittleEndianInt16(rawData, 2);
+    magZ = readLittleEndianInt16(rawData, 4);
     return true;
 }
 
@@ -132,4 +200,9 @@ bool Mpu9250ImuArray::writeRegister(TwoWire& bus, uint8_t address, uint8_t reg, 
 int16_t Mpu9250ImuArray::readBigEndianInt16(const uint8_t* buffer, size_t offset) {
     return static_cast<int16_t>((static_cast<uint16_t>(buffer[offset]) << 8) |
                                 static_cast<uint16_t>(buffer[offset + 1]));
+}
+
+int16_t Mpu9250ImuArray::readLittleEndianInt16(const uint8_t* buffer, size_t offset) {
+    return static_cast<int16_t>((static_cast<uint16_t>(buffer[offset + 1]) << 8) |
+                                static_cast<uint16_t>(buffer[offset]));
 }

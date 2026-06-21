@@ -11,9 +11,13 @@
  * @file imu_sample.h
  * @brief Declares the inertial sample structure shared across uFlex.
  *
- * ImuSample captures the accelerometer, gyroscope, and temperature values used
- * by the current domain model. The same structure is produced by simulation and
- * hardware adapters so motion calculations can stay backend-agnostic.
+ * ImuSample captures the accelerometer, gyroscope, magnetometer, and
+ * temperature values used by the current domain model. The same structure is
+ * produced by simulation and hardware adapters so motion calculations can stay
+ * backend-agnostic. Magnetometer fields default to zero on adapters that
+ * cannot source them (e.g. the MPU6050-backed simulator), since sensor fusion
+ * treats an all-zero magnetometer reading as "unavailable" rather than a real
+ * heading reference.
  *
  * @author Salim Ramirez
  * @date June 8, 2026
@@ -27,6 +31,9 @@ struct ImuSample {
     int16_t gyroY;
     int16_t gyroZ;
     int16_t temperature;
+    int16_t magX;
+    int16_t magY;
+    int16_t magZ;
 };
 
 #endif // UFLEX_DOMAIN_SENSORS_IMU_SAMPLE_H
