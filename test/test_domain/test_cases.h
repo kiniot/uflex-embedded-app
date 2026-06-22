@@ -7,8 +7,12 @@ void runRelativeAngleCalculatorTests();
 void runUflexDeviceTests();
 void runMotionPayloadTests();
 void runQuaternionTests();
+void runJointAngleCalculatorTests();
 void runOrientationFilterTests();
 void runRelativeRotationCalculatorTests();
 void runBleMotionTelemetryTests();
+void runSampleBatchSerializerTests();
+void runJointTargetingTests();
+void runActiveContextParserTests();
 
 #endif // UFLEX_TEST_CASES_H

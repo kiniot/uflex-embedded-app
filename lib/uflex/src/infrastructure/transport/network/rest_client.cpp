@@ -49,3 +49,36 @@ RestResponse RESTClient::post(const char* path, const char* jsonBody, const char
 
     return {statusCode > 0, statusCode};
 }
+
+RestResponse RESTClient::get(const char* path, char* responseBuffer, size_t responseBufferSize,
+                             const char* apiKey) {
+    if (responseBuffer != nullptr && responseBufferSize > 0) {
+        responseBuffer[0] = '\0';
+    }
+    if (!wifiConnection.isConnected()) {
+        return {false, 0};
+    }
+
+    char url[128] = {};
+    snprintf(url, sizeof(url), "http://%s:%u%s", host, port, path);
+
+    HTTPClient http;
+    http.setTimeout(REQUEST_TIMEOUT_MS);
+    if (!http.begin(url)) {
+        return {false, 0};
+    }
+
+    if (apiKey != nullptr) {
+        http.addHeader("X-API-Key", apiKey);
+    }
+
+    const int statusCode = http.GET();
+    if (statusCode > 0 && responseBuffer != nullptr && responseBufferSize > 0) {
+        const String body = http.getString();
+        strncpy(responseBuffer, body.c_str(), responseBufferSize - 1);
+        responseBuffer[responseBufferSize - 1] = '\0';
+    }
+    http.end();
+
+    return {statusCode > 0, statusCode};
+}

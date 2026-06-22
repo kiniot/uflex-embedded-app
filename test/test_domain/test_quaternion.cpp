@@ -1,5 +1,7 @@
 #include <unity.h>
 
+#include <math.h>
+
 #include "test_cases.h"
 #include "uflex/domain/math/quaternion.h"
 
@@ -56,6 +58,38 @@ void testNormalizeOfNearZeroQuaternionReturnsIdentity() {
     assertQuaternionEquals(Quaternion::identity(), result);
 }
 
+Quaternion rotationAboutX(float degrees) {
+    const float halfRadians = degrees * 0.5f * 3.14159265f / 180.0f;
+    return Quaternion{cosf(halfRadians), sinf(halfRadians), 0.0f, 0.0f};
+}
+
+Quaternion rotationAboutZ(float degrees) {
+    const float halfRadians = degrees * 0.5f * 3.14159265f / 180.0f;
+    return Quaternion{cosf(halfRadians), 0.0f, 0.0f, sinf(halfRadians)};
+}
+
+void testRotationAngleOfIdentityIsZero() {
+    TEST_ASSERT_FLOAT_WITHIN(kTolerance, 0.0f, rotationAngleDegrees(Quaternion::identity()));
+}
+
+void testRotationAngleMatchesAxisAngle() {
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 60.0f, rotationAngleDegrees(rotationAboutX(60.0f)));
+}
+
+void testRotationAngleIgnoresDoubleCover() {
+    const Quaternion q = rotationAboutX(60.0f);
+    const Quaternion negated{-q.w, -q.x, -q.y, -q.z}; // -q is the same rotation
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 60.0f, rotationAngleDegrees(negated));
+}
+
+void testYawOfIdentityIsZero() {
+    TEST_ASSERT_FLOAT_WITHIN(kTolerance, 0.0f, yawDegrees(Quaternion::identity()));
+}
+
+void testYawMatchesZRotation() {
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 30.0f, yawDegrees(rotationAboutZ(30.0f)));
+}
+
 } // namespace
 
 void runQuaternionTests() {
@@ -64,4 +98,9 @@ void runQuaternionTests() {
     RUN_TEST(testMultiplyByConjugateProducesScalarOnlyResult);
     RUN_TEST(testNormalizeRescalesToUnitMagnitude);
     RUN_TEST(testNormalizeOfNearZeroQuaternionReturnsIdentity);
+    RUN_TEST(testRotationAngleOfIdentityIsZero);
+    RUN_TEST(testRotationAngleMatchesAxisAngle);
+    RUN_TEST(testRotationAngleIgnoresDoubleCover);
+    RUN_TEST(testYawOfIdentityIsZero);
+    RUN_TEST(testYawMatchesZRotation);
 }

@@ -43,4 +43,17 @@ Quaternion conjugate(const Quaternion& quaternion);
  */
 Quaternion normalize(const Quaternion& quaternion);
 
+/**
+ * @brief Returns the rotation magnitude of a quaternion in degrees, range
+ * [0, 180]. Uses |w| so the double-cover (q and -q are the same rotation) maps
+ * to a single angle; normalize the quaternion first for a non-unit input.
+ */
+float rotationAngleDegrees(const Quaternion& quaternion);
+
+/**
+ * @brief Returns the yaw (rotation about Z) of a quaternion in degrees, range
+ * [-180, 180]. Used for the proximal-segment compensation signal.
+ */
+float yawDegrees(const Quaternion& quaternion);
+
 #endif // UFLEX_DOMAIN_MATH_QUATERNION_H

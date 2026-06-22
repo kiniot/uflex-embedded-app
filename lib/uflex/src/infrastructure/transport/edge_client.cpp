@@ -21,7 +21,9 @@
 #include <HTTPClient.h>
 #include <stdio.h>
 
+#include "uflex/infrastructure/transport/active_context_parser.h"
 #include "uflex/infrastructure/transport/motion_payload_serializer.h"
+#include "uflex/infrastructure/transport/sample_batch_serializer.h"
 
 EdgeClient::EdgeClient(const EdgeEndpoint& endpoint)
     : endpoint(endpoint),
@@ -67,4 +69,48 @@ bool EdgeClient::publish(const MotionPayload& payload) {
     }
 
     return accepted;
+}
+
+bool EdgeClient::publishSamples(const SampleBatchPayload& payload) {
+    if (!isReady()) {
+        Serial.println("edge: skipped publish (WiFi not connected)");
+        return false;
+    }
+
+    char body[REQUEST_BODY_BUFFER_SIZE] = {};
+    if (SampleBatchSerializer::toJson(payload, body, sizeof(body)) < 0) {
+        Serial.println("edge: skipped publish (batch serialization failed)");
+        return false;
+    }
+
+    const RestResponse response = restClient.post(endpoint.path, body, endpoint.apiKey);
+    const bool accepted =
+        response.statusCode == HTTP_CODE_OK || response.statusCode == HTTP_CODE_CREATED;
+
+    if (accepted) {
+        Serial.printf("edge: batch published (%u samples, HTTP %d)\n",
+                      static_cast<unsigned>(payload.sampleCount), response.statusCode);
+    } else {
+        Serial.printf("edge: batch publish failed (HTTP %d)\n", response.statusCode);
+    }
+
+    return accepted;
+}
+
+bool EdgeClient::fetchActiveContext(ActiveSerieContext& out) {
+    if (!isReady()) {
+        return false;
+    }
+
+    char path[160] = {};
+    snprintf(path, sizeof(path), "%s?serial_number=%s", endpoint.downChannelPath, endpoint.deviceId);
+
+    char response[DOWN_CHANNEL_RESPONSE_BUFFER_SIZE] = {};
+    const RestResponse result = restClient.get(path, response, sizeof(response), endpoint.apiKey);
+    if (result.statusCode != HTTP_CODE_OK) {
+        return false;
+    }
+
+    parseActiveContext(response, out);
+    return true;
 }

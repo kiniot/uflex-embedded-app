@@ -31,7 +31,8 @@ SimUflexRuntime::SimUflexRuntime()
       statusLed(RGB_RED_PIN, RGB_GREEN_PIN, RGB_BLUE_PIN),
       vibrationMotor(VIBRATION_MOTOR_PIN),
       edgeClient({UFLEX_WIFI_SSID, UFLEX_WIFI_PASSWORD, UFLEX_WIFI_CHANNEL, UFLEX_EDGE_HOST,
-                  UFLEX_EDGE_PORT, UFLEX_EDGE_PATH, UFLEX_SERIAL_NUMBER, UFLEX_DEVICE_API_KEY}) {}
+                  UFLEX_EDGE_PORT, UFLEX_EDGE_PATH, UFLEX_EDGE_DOWN_CHANNEL_PATH,
+                  UFLEX_SERIAL_NUMBER, UFLEX_DEVICE_API_KEY}) {}
 
 bool SimUflexRuntime::begin() {
     statusBuzzer.begin();

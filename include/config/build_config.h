@@ -74,6 +74,9 @@ static_assert(
 // Shared edge gateway contract (see uflex-edge-gateway README).
 #define UFLEX_EDGE_PORT 5000
 #define UFLEX_EDGE_PATH "/api/v1/movement-monitoring/data-records"
+// Down-channel: the firmware GETs its active serie context (joint + maxSafeAngle)
+// here; the kit serial is appended as a query param at call time.
+#define UFLEX_EDGE_DOWN_CHANNEL_PATH "/api/v1/movement-monitoring/active-context"
 
 // kitSerial: the device's cross-service identity (== edge device_id, == backend
 // serialNumber, == the value of the BLE serial characteristic). It is NOT the

@@ -32,6 +32,7 @@ struct EdgeEndpoint {
     const char* host;
     uint16_t port;
     const char* path;
+    const char* downChannelPath;
     const char* deviceId;
     const char* apiKey;
 };
@@ -43,9 +44,15 @@ public:
     bool begin() override;
     bool isReady() const override;
     bool publish(const MotionPayload& payload) override;
+    bool publishSamples(const SampleBatchPayload& payload) override;
+    bool fetchActiveContext(ActiveSerieContext& out) override;
 
 private:
-    static constexpr size_t REQUEST_BODY_BUFFER_SIZE = 256;
+    // One enriched sample is ~110 bytes; 512 holds a small batch with headroom.
+    // When batching to N, size as roughly BASE(~60) + N * PER_SAMPLE(~120).
+    static constexpr size_t REQUEST_BODY_BUFFER_SIZE = 512;
+    // The active-context response is ~120 bytes; 256 is generous.
+    static constexpr size_t DOWN_CHANNEL_RESPONSE_BUFFER_SIZE = 256;
 
     EdgeEndpoint endpoint;
     WifiConnection wifiConnection;

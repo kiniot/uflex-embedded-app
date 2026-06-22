@@ -1,5 +1,7 @@
 #include <unity.h>
 
+#include <math.h>
+
 #include "test_cases.h"
 #include "uflex/domain/devices/uflex_device.h"
 
@@ -81,10 +83,34 @@ void testUnrelatedEventDoesNotChangeCalculatedAngles() {
     assertAngleEquals(before, device.getUpperMiddleAngle());
 }
 
+void testDeviceUpperOrientationStartsAtIdentity() {
+    UflexDevice device({0, 0x68}, {1, 0x69}, {2, 0x6A});
+
+    const Quaternion orientation = device.getUpperOrientation();
+
+    TEST_ASSERT_FLOAT_WITHIN(kAngleToleranceDegrees, 1.0f, orientation.w);
+    TEST_ASSERT_FLOAT_WITHIN(kAngleToleranceDegrees, 0.0f, orientation.x);
+    TEST_ASSERT_FLOAT_WITHIN(kAngleToleranceDegrees, 0.0f, orientation.y);
+    TEST_ASSERT_FLOAT_WITHIN(kAngleToleranceDegrees, 0.0f, orientation.z);
+}
+
+void testDeviceUpperOrientationIsUnitAfterUpdate() {
+    UflexDevice device({0, 0x68}, {1, 0x69}, {2, 0x6A});
+    device.getUpperImu().updateSample(ImuSample{0, 0, 1000, 0, 0, 0, 0});
+
+    device.updateOrientations(0.04f);
+    const Quaternion q = device.getUpperOrientation();
+
+    const float magnitude = sqrtf(q.w * q.w + q.x * q.x + q.y * q.y + q.z * q.z);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, magnitude);
+}
+
 } // namespace
 
 void runUflexDeviceTests() {
     RUN_TEST(testDeviceExposesConfiguredImusAndZeroInitialState);
     RUN_TEST(testDeviceRecalculatesAllAnglesWhenImuSamplesChange);
     RUN_TEST(testUnrelatedEventDoesNotChangeCalculatedAngles);
+    RUN_TEST(testDeviceUpperOrientationStartsAtIdentity);
+    RUN_TEST(testDeviceUpperOrientationIsUnitAfterUpdate);
 }

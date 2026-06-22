@@ -11,9 +11,13 @@ void runAllSuites() {
     runUflexDeviceTests();
     runMotionPayloadTests();
     runQuaternionTests();
+    runJointAngleCalculatorTests();
     runOrientationFilterTests();
     runRelativeRotationCalculatorTests();
     runBleMotionTelemetryTests();
+    runSampleBatchSerializerTests();
+    runJointTargetingTests();
+    runActiveContextParserTests();
 }
 
 } // namespace

@@ -32,7 +32,8 @@ UflexDevice::UflexDevice(ImuConfig upperImuConfig, ImuConfig middleImuConfig,
       upperLowerAngle{0.0f, 0.0f},
       upperMiddleRotation(Quaternion::identity()),
       middleLowerRotation(Quaternion::identity()),
-      upperLowerRotation(Quaternion::identity()) {}
+      upperLowerRotation(Quaternion::identity()),
+      upperOrientation(Quaternion::identity()) {}
 
 void UflexDevice::on(Event event) {
     if (event == Imu::MOTION_DETECTED_EVENT) {
@@ -52,7 +53,7 @@ void UflexDevice::on(Event event) {
 }
 
 void UflexDevice::updateOrientations(float deltaTimeSeconds) {
-    const Quaternion upperOrientation =
+    upperOrientation =
         upperOrientationFilter.update(upperImu.getLastSample(), deltaTimeSeconds);
     const Quaternion middleOrientation =
         middleOrientationFilter.update(middleImu.getLastSample(), deltaTimeSeconds);
@@ -116,6 +117,10 @@ Quaternion UflexDevice::getMiddleLowerRotation() const {
 
 Quaternion UflexDevice::getUpperLowerRotation() const {
     return upperLowerRotation;
+}
+
+Quaternion UflexDevice::getUpperOrientation() const {
+    return upperOrientation;
 }
 
 MotionState UflexDevice::getMotionState() const {

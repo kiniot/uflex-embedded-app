@@ -5,6 +5,7 @@
 #ifndef UFLEX_INFRASTRUCTURE_TRANSPORT_NETWORK_REST_CLIENT_H
 #define UFLEX_INFRASTRUCTURE_TRANSPORT_NETWORK_REST_CLIENT_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include "uflex/infrastructure/transport/network/wifi_connection.h"
@@ -39,6 +40,17 @@ public:
      * @param apiKey Optional value sent in the "X-API-Key" header; pass nullptr to omit it.
      */
     RestResponse post(const char* path, const char* jsonBody, const char* apiKey = nullptr);
+
+    /**
+     * @brief Sends a GET request and copies the response body into the buffer.
+     *
+     * @param path Request path.
+     * @param responseBuffer Caller-owned buffer for the response body (null-terminated on return).
+     * @param responseBufferSize Size of responseBuffer in bytes.
+     * @param apiKey Optional value sent in the "X-API-Key" header; pass nullptr to omit it.
+     */
+    RestResponse get(const char* path, char* responseBuffer, size_t responseBufferSize,
+                     const char* apiKey = nullptr);
 
 private:
     WifiConnection& wifiConnection;

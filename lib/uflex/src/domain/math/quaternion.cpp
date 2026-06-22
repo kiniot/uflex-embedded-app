@@ -18,6 +18,7 @@
 namespace {
 
 constexpr float kMinNormalizableMagnitude = 1e-6f;
+constexpr float kRadiansToDegrees = 57.2957795f; // 180 / pi
 
 } // namespace
 
@@ -53,4 +54,20 @@ Quaternion normalize(const Quaternion& quaternion) {
         quaternion.y * inverseMagnitude,
         quaternion.z * inverseMagnitude,
     };
+}
+
+float rotationAngleDegrees(const Quaternion& quaternion) {
+    // For a unit quaternion w = cos(theta/2); |w| collapses the double cover so
+    // the angle stays in [0, 180]. The clamp guards acosf against FP drift.
+    float w = fabsf(quaternion.w);
+    if (w > 1.0f) {
+        w = 1.0f;
+    }
+    return 2.0f * acosf(w) * kRadiansToDegrees;
+}
+
+float yawDegrees(const Quaternion& quaternion) {
+    const float sinYaw = 2.0f * (quaternion.w * quaternion.z + quaternion.x * quaternion.y);
+    const float cosYaw = 1.0f - 2.0f * (quaternion.y * quaternion.y + quaternion.z * quaternion.z);
+    return atan2f(sinYaw, cosYaw) * kRadiansToDegrees;
 }

@@ -46,6 +46,7 @@ private:
     Quaternion upperMiddleRotation;
     Quaternion middleLowerRotation;
     Quaternion upperLowerRotation;
+    Quaternion upperOrientation;
 
 public:
     /**
@@ -143,6 +144,12 @@ public:
      * @brief Returns the fused relative rotation between the upper and lower IMUs.
      */
     Quaternion getUpperLowerRotation() const;
+
+    /**
+     * @brief Returns the upper segment's absolute fused orientation; its yaw is
+     * the proximal-segment compensation signal.
+     */
+    Quaternion getUpperOrientation() const;
 
     /**
      * @brief Returns the current aggregated motion state.
