@@ -12,6 +12,7 @@ void runAllSuites() {
     runMotionPayloadTests();
     runQuaternionTests();
     runJointAngleCalculatorTests();
+    runGyroBiasCalibratorTests();
     runOrientationFilterTests();
     runRelativeRotationCalculatorTests();
     runBleMotionTelemetryTests();

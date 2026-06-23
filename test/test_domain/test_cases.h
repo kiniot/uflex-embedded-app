@@ -8,6 +8,7 @@ void runUflexDeviceTests();
 void runMotionPayloadTests();
 void runQuaternionTests();
 void runJointAngleCalculatorTests();
+void runGyroBiasCalibratorTests();
 void runOrientationFilterTests();
 void runRelativeRotationCalculatorTests();
 void runBleMotionTelemetryTests();

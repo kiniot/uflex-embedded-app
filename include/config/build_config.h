@@ -72,7 +72,7 @@ static_assert(
 #endif
 
 // Shared edge gateway contract (see uflex-edge-gateway README).
-#define UFLEX_EDGE_PORT 5000
+#define UFLEX_EDGE_PORT 5050
 #define UFLEX_EDGE_PATH "/api/v1/movement-monitoring/data-records"
 // Down-channel: the firmware GETs its active serie context (joint + maxSafeAngle)
 // here; the kit serial is appended as a query param at call time.

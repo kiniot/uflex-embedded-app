@@ -91,9 +91,22 @@ pio run -e esp32_sim   # build for simulation
 
 ## Status & notes
 
-- The MPU9250 adapter is a **preliminary** integration: it is structurally ready for real
-  hardware but still needs validation against the physical board and the final multiplexer
-  wiring.
-- Magnetometer (AK8963) data is **not** read yet; the first version is limited to the
-  accelerometer/gyroscope/temperature set required by the current motion calculations.
+- The MPU9250 adapter now reads the **full IMU set incl. the AK8963 magnetometer**, with
+  per-axis **ASA** sensitivity scaling (Fuse-ROM), **ST2/HOFL** overflow rejection, and a
+  startup **gyro-bias calibration** (subtracted in `updateImu`; the Mahony filter is left
+  unchanged and receives the de-biased gyro). All of this **compiles** for `esp32_sim` and
+  `esp32_hw`; the host-pure `GyroBiasCalibrator` is unit-tested.
+- **On-board validation (flashed `esp32_hw`, read serial):** 3× MPU9250 detected
+  (`WHO_AM_I=0x71`), 3× AK8963 reports **"ready"** (the ASA init sequence does not break
+  init), the gyro calibration runs and stores a bias, BLE comes up.
+- **Known blocker (hardware, pre-existing):** at runtime the AK8963 **DRDY (ST1) bit never
+  sets** → `magnetometer read skipped (not ready)` → the magnetometer stays 0 and the filter
+  stays in **6-DOF (yaw drifts)**. So the proximal yaw is **not yet real**. This is the
+  remaining hardware debug (the "Error 263" area): common on clone MPU9250 modules, or a
+  continuous-mode read-sequence detail (likely fix: read `ST1 + 6 data + ST2` in a **single
+  8-byte transaction**). It was **not** introduced by the magnetometer work — the DRDY check
+  pre-dates it.
+- **`begin()` ordering:** the IMU init (and gyro calibration) currently runs **after** the
+  WiFi connect, so a bad/placeholder `.env` (e.g. `YOUR_WIFI_SSID`) delays sensing by the
+  ~20 s WiFi timeout. Consider initializing the IMUs **before** the network.
 - Channel-to-segment assignment is fixed at three IMUs by design (`ImuBinding imus[3]`).

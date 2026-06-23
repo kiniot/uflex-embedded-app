@@ -34,6 +34,8 @@ public:
     struct ImuBinding {
         Imu& imu;
         TwoWire& bus;
+        float magAsa[3];      // per-axis AK8963 sensitivity-adjustment scale (1.0 until read)
+        int16_t gyroBias[3];  // per-axis gyro zero-rate bias in raw LSB (0 until calibrated)
     };
 
     /**
@@ -67,6 +69,12 @@ private:
     static constexpr uint8_t AK8963_ST1_REGISTER = 0x02;
     static constexpr uint8_t AK8963_MEASUREMENT_START_REGISTER = 0x03;
     static constexpr uint8_t AK8963_DATA_READY_BIT = 0x01;
+    static constexpr uint8_t AK8963_ASA_START_REGISTER = 0x10;
+    static constexpr uint8_t AK8963_FUSE_ROM_ACCESS_MODE = 0x0F;
+    static constexpr uint8_t AK8963_POWER_DOWN_MODE = 0x00;
+    static constexpr uint8_t AK8963_ST2_REGISTER_OFFSET = 6;
+    static constexpr uint8_t AK8963_OVERFLOW_BIT = 0x08;
+    static constexpr uint16_t GYRO_BIAS_CALIBRATION_SAMPLES = 100;
 
     ImuBinding imus[3];
 
@@ -76,12 +84,14 @@ private:
     bool enableMagnetometerBypass(ImuBinding& binding);
     bool initializeMagnetometer(ImuBinding& binding);
     bool updateImu(ImuBinding& binding);
+    void calibrateGyroBias(ImuBinding& binding);
     bool readMagnetometer(ImuBinding& binding, int16_t& magX, int16_t& magY, int16_t& magZ);
     bool readRegisters(TwoWire& bus, uint8_t address, uint8_t startRegister, uint8_t* buffer,
                        size_t length);
     bool writeRegister(TwoWire& bus, uint8_t address, uint8_t reg, uint8_t value);
     static int16_t readBigEndianInt16(const uint8_t* buffer, size_t offset);
     static int16_t readLittleEndianInt16(const uint8_t* buffer, size_t offset);
+    static int16_t saturateToInt16(float value);
 };
 
 #endif // UFLEX_INFRASTRUCTURE_ADAPTERS_HW_MPU9250_IMU_ARRAY_H

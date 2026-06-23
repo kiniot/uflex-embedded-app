@@ -56,9 +56,13 @@ firmware entry point thin.
 
 - The hardware adapter is preliminary and still requires validation against the physical ESP32,
   final MPU9250 wiring, and any multiplexer arrangement.
-- The current MPU9250 adapter reads accelerometer, gyroscope, and temperature data. Magnetometer
-  support is not implemented.
-- BLE, Wi-Fi, HTTP, and other network transports are described as future directions but no such
-  production classes currently exist, so they are not shown.
+- The current MPU9250 adapter reads accelerometer, gyroscope, temperature **and the AK8963
+  magnetometer** (per-axis ASA scaling, ST2/HOFL overflow rejection, startup gyro-bias
+  calibration). Caveat: on the physical board the magnetometer initializes but does not yet
+  produce data-ready samples (DRDY never sets) — see `docs/hardware-overview.md` for the
+  on-board validation status.
+- BLE, Wi-Fi, HTTP, and edge/REST transports **now exist** (BLE telemetry server, WiFi
+  connection, REST client, edge transport); this early class diagram predates them and does
+  not show them.
 - ModestIoT includes `Actuator`, but no current uFlex production class derives from it.
 - No enums are currently declared in the analyzed uFlex production headers.
