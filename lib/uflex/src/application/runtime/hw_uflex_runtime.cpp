@@ -53,6 +53,10 @@ bool HwUflexRuntime::begin() {
     Serial.println("Hardware integration is preliminary and still needs physical validation.");
     applyOutputs();
 
+    // IMUs first: gyro-bias calibration needs the kit still right after boot, and sensing must
+    // not wait on a possibly-slow or failed WiFi association (see EXECUTION-CONTRACT §13.4).
+    bool imuOk = hardwareImuArray.begin();
+
     if (!edgeClient.begin()) {
         Serial.println("Edge gateway unreachable; continuing without network publishing.");
     }
@@ -66,7 +70,7 @@ bool HwUflexRuntime::begin() {
                       UFLEX_BLE_ADVERTISED_NAME, bleTelemetryServer.bleMacAddress().c_str());
     }
 
-    return hardwareImuArray.begin();
+    return imuOk;
 }
 
 bool HwUflexRuntime::update() {
