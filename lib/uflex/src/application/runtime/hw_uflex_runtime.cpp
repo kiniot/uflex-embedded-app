@@ -6,6 +6,8 @@
 
 #include <Arduino.h>
 
+#include "config/build_config.h"
+
 /**
  * @file hw_uflex_runtime.cpp
  * @brief Implements the hardware runtime for uFlex.
@@ -28,7 +30,11 @@ HwUflexRuntime::HwUflexRuntime()
                        {device.getLowerImu(), secondaryBus}),
       statusBuzzer(BUZZER_PIN),
       statusLed(RGB_RED_PIN, RGB_GREEN_PIN, RGB_BLUE_PIN),
-      vibrationMotor(VIBRATION_MOTOR_PIN) {}
+      vibrationMotor(VIBRATION_MOTOR_PIN),
+      edgeClient({UFLEX_WIFI_SSID, UFLEX_WIFI_PASSWORD, UFLEX_WIFI_CHANNEL, UFLEX_EDGE_HOST,
+                  UFLEX_EDGE_PORT, UFLEX_EDGE_PATH, UFLEX_EDGE_DOWN_CHANNEL_PATH,
+                  UFLEX_SERIAL_NUMBER, UFLEX_DEVICE_API_KEY}),
+      bleTelemetryServer({UFLEX_SERIAL_NUMBER, UFLEX_BLE_ADVERTISED_NAME}) {}
 
 bool HwUflexRuntime::begin() {
     statusBuzzer.begin();
@@ -47,7 +53,24 @@ bool HwUflexRuntime::begin() {
     Serial.println("Hardware integration is preliminary and still needs physical validation.");
     applyOutputs();
 
-    return hardwareImuArray.begin();
+    // IMUs first: gyro-bias calibration needs the kit still right after boot, and sensing must
+    // not wait on a possibly-slow or failed WiFi association (see EXECUTION-CONTRACT §13.4).
+    bool imuOk = hardwareImuArray.begin();
+
+    if (!edgeClient.begin()) {
+        Serial.println("Edge gateway unreachable; continuing without network publishing.");
+    }
+
+    if (!bleTelemetryServer.begin()) {
+        Serial.println("BLE telemetry server failed to start.");
+    } else {
+        // Serial = identity; advertised name = transport; MAC = for registration and
+        // diagnostics only, not connection identity (see device-identity-contract).
+        Serial.printf("BLE serial=%s advertisedName=%s MAC=%s\n", UFLEX_SERIAL_NUMBER,
+                      UFLEX_BLE_ADVERTISED_NAME, bleTelemetryServer.bleMacAddress().c_str());
+    }
+
+    return imuOk;
 }
 
 bool HwUflexRuntime::update() {
@@ -62,4 +85,12 @@ void HwUflexRuntime::applyOutputs() {
 
 UflexDevice& HwUflexRuntime::getDevice() {
     return device;
+}
+
+EdgeTransport& HwUflexRuntime::getEdgeTransport() {
+    return edgeClient;
+}
+
+BleTransport& HwUflexRuntime::getBleTransport() {
+    return bleTelemetryServer;
 }

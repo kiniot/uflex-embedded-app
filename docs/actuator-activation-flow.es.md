@@ -394,6 +394,59 @@ En una frase:
 
 1. Definir una estructura formal de configuración activa para el embedded.
 2. Definir el contrato de mensajes `edge -> embedded`.
-3. Definir el payload BLE mínimo hacia mobile.
+3. ~~Definir el payload BLE mínimo hacia mobile.~~ Hecho — ver sección 12.
 4. Definir el payload Wi‑Fi/HTTP hacia edge.
 5. Reemplazar los comportamientos actuales de prueba de actuadores por criterios clínicos o funcionales reales.
+
+---
+
+## 12. Contrato de Telemetría BLE (Implementado)
+
+Esta sección documenta el payload BLE `embedded -> mobile` referido en la sección 6.1, ya implementado en `BleTelemetryServer` (GATT server basado en NimBLE) y `BleMotionTelemetrySerializer`.
+
+### 12.1 Por qué un contrato separado del payload HTTP
+
+`MotionPayload` (el payload HTTP hacia el edge, sección 6.2) solo lleva deltas de pitch/roll derivados del acelerómetro. El mobile necesita la rotación relativa completa en 3 ejes por articulación para mover un avatar que muestre movimiento hacia/desde la cámara, no solo arriba/abajo — por eso la telemetría BLE lleva cuaterniones, fusionados desde acelerómetro + giroscopio + magnetómetro mediante `OrientationFilter` (un filtro complementario explícito estilo Mahony) y reducidos a rotación relativa por articulación mediante `RelativeRotationCalculator`.
+
+### 12.2 Perfil GATT
+
+- UUID de servicio y de característica notify, ambos 128-bit propios (ver `BleTelemetryServer`); no es un perfil registrado en el SIG, porque es dato privado entre nuestro propio firmware y nuestra propia app.
+- Una sola característica, solo `NOTIFY` — el mobile nunca escribe al embedded por BLE en esta versión (consistente con la sección 8.1: el flujo `mobile -> embedded` se descartó explícitamente para esta versión).
+- Nombre de advertising: `UFLEX_DEVICE_ID` (hoy una constante de compilación; ver el punto abierto en 12.5 sobre alinearlo con `Device.advertisedName` del backend).
+- MTU preferido: 256 bytes, negociado al conectar, para que el payload completo entre en una sola notificación en vez de fragmentarse en tres paquetes ATT.
+
+### 12.3 Formato de bytes (53 bytes, little-endian)
+
+| Offset | Campo | Tipo |
+|---|---|---|
+| 0  | upperMiddleRotation.w | float32 |
+| 4  | upperMiddleRotation.x | float32 |
+| 8  | upperMiddleRotation.y | float32 |
+| 12 | upperMiddleRotation.z | float32 |
+| 16 | middleLowerRotation.w | float32 |
+| 20 | middleLowerRotation.x | float32 |
+| 24 | middleLowerRotation.y | float32 |
+| 28 | middleLowerRotation.z | float32 |
+| 32 | upperLowerRotation.w | float32 |
+| 36 | upperLowerRotation.x | float32 |
+| 40 | upperLowerRotation.y | float32 |
+| 44 | upperLowerRotation.z | float32 |
+| 48 | ledColor | uint8 |
+| 49 | buzzerActive | uint8 (0/1) |
+| 50 | vibrationActive | uint8 (0/1) |
+| 51-52 | sequenceNumber | uint16 |
+
+Los campos se escriben explícitamente byte por byte (`BleMotionTelemetrySerializer`) en vez de copiar la memoria cruda del struct de C++, así el layout queda garantizado sin depender de cómo cada compilador alinee/rellene el struct entre el firmware del ESP32 y la app móvil. Ambas plataformas son little-endian, así que los floats IEEE-754 no necesitan conversión de bytes.
+
+`sequenceNumber` es un contador monotónico de frames producidos (se incrementa en cada ciclo de lectura sin importar si hay un cliente móvil conectado), para que la app pueda detectar notificaciones perdidas.
+
+### 12.4 Cadencia
+
+El loop de lectura del embedded (y por lo tanto la tasa de publicación BLE) corre a ~25Hz (`UflexApplication::READ_INTERVAL_MS = 40`), cumpliendo el objetivo de "alta frecuencia" de la sección 6.1. El canal HTTP hacia el edge mantiene su propio `EDGE_PUBLISH_INTERVAL_MS` (5s), mucho más lento y sin verse afectado por este cambio.
+
+### 12.5 Simplificaciones conocidas / pendientes
+
+- **Todavía no hay campo `sessionActive`.** El embedded no tiene ningún concepto de sesión/configuración que reportar hasta que se implementen los puntos #1/#2 de arriba. Agregarlo al payload cuando ese contrato exista.
+- **Sin seguridad/pairing BLE.** Notificaciones abiertas, sin encriptar, para este MVP; revisar si el proyecto deja de ser un prototipo académico.
+- **Wokwi no simula Bluetooth.** `BleTelemetryServer` solo respalda `esp32_hw`; `esp32_sim` usa `NoOpBleTransport`, así que este canal solo se puede probar en hardware real.
+- **El nombre de advertising es una constante estática de compilación.** El agregado `Device` del backend ya modela campos `advertisedName`/`macAddress` pensados para correlacionar un dispositivo registrado con su peripheral BLE; si el proyecto escala más allá de un kit de prototipo único, el nombre de advertising debería venir de configuración aprovisionada en vez de una constante fija.

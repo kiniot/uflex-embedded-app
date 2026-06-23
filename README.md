@@ -137,9 +137,18 @@ For simulation workflows, you will also need:
 # Build simulation target
 pio run -e esp32_sim
 
-# Build hardware target
-pio run -e esp32_hw
+# Build hardware target (requires WiFi/edge gateway secrets, see below)
+./scripts/build_hw.sh          # macOS / Linux
+.\scripts\build_hw.ps1         # Windows (PowerShell)
 ```
+
+The `esp32_hw` target needs real WiFi credentials and an edge gateway API key,
+which are injected as build flags rather than hardcoded. Copy `.env.example`
+to `.env`, fill in real values, and build with the wrapper script for your
+platform (or load `.env` into your shell yourself before calling
+`pio run -e esp32_hw` directly). See the
+[Environment Setup Guide](docs/env-setup.md#7-hardware-deployment-secrets-wifi--edge-gateway)
+for details.
 
 ---
 
