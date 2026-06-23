@@ -77,6 +77,12 @@ bool Mpu9250ImuArray::initializeImu(ImuBinding& binding) {
         return false;
     }
 
+    // Device reset (PWR_MGMT_1 H_RESET) to a known state. The MPU9250 keeps its registers across an
+    // ESP32-only reset (it is not power-cycled), so leftover I2C-master/bypass config from a prior
+    // boot would make the bypass-based AK8963 init fail. Reset clears that.
+    writeRegister(binding.bus, binding.imu.getI2cAddress(), POWER_MANAGEMENT_1_REGISTER, 0x80);
+    delay(100);
+
     if (!wakeImu(binding)) {
         Serial.printf("MPU9250 [0x%02X] wake-up failed\n", binding.imu.getI2cAddress());
         return false;
@@ -92,6 +98,15 @@ bool Mpu9250ImuArray::initializeImu(ImuBinding& binding) {
 
     if (!initializeMagnetometer(binding)) {
         Serial.printf("MPU9250 [0x%02X] AK8963 magnetometer init failed\n",
+                      binding.imu.getI2cAddress());
+        return false;
+    }
+
+    // Switch this AK8963 from bypass to the MPU9250's internal I2C master so it no longer shares
+    // the fixed 0x0C address on the external bus. Safe to do per-IMU here: begin() initializes the
+    // IMUs sequentially, so bypass is turned off on this one before the next same-bus IMU enables it.
+    if (!enableMagnetometerMasterMode(binding)) {
+        Serial.printf("MPU9250 [0x%02X] AK8963 master-mode setup failed\n",
                       binding.imu.getI2cAddress());
         return false;
     }
@@ -143,6 +158,36 @@ bool Mpu9250ImuArray::initializeMagnetometer(ImuBinding& binding) {
                          AK8963_CONTINUOUS_MEASUREMENT_16BIT_MODE2);
 }
 
+bool Mpu9250ImuArray::enableMagnetometerMasterMode(ImuBinding& binding) {
+    const uint8_t address = binding.imu.getI2cAddress();
+
+    // Disable bypass FIRST: BYPASS_EN gates the internal master, and on a shared bus it is what
+    // puts two AK8963 at 0x0C. After this, the AK8963 is reachable only through this MPU9250.
+    if (!writeRegister(binding.bus, address, INT_PIN_CFG_REGISTER, BYPASS_DISABLE_VALUE)) {
+        return false;
+    }
+    // Enable the MPU9250's internal I2C master and set the auxiliary-bus clock (400kHz).
+    if (!writeRegister(binding.bus, address, USER_CTRL_REGISTER, I2C_MST_EN_VALUE)) {
+        return false;
+    }
+    if (!writeRegister(binding.bus, address, I2C_MST_CTRL_REGISTER, I2C_MST_CTRL_VALUE)) {
+        return false;
+    }
+    // SLV0: continuously read AK8963 ST1 + 6 data bytes + ST2 (regs 0x02..0x09) into EXT_SENS_DATA
+    // every sample cycle. Reading ST2 each cycle is what unlatches the AK8963 for the next sample.
+    if (!writeRegister(binding.bus, address, I2C_SLV0_ADDR_REGISTER, AK8963_SLV0_ADDR_VALUE)) {
+        return false;
+    }
+    if (!writeRegister(binding.bus, address, I2C_SLV0_REG_REGISTER, AK8963_ST1_REGISTER)) {
+        return false;
+    }
+    if (!writeRegister(binding.bus, address, I2C_SLV0_CTRL_REGISTER, I2C_SLV0_CTRL_VALUE)) {
+        return false;
+    }
+    delay(MAGNETOMETER_MASTER_SETTLE_MS);  // let EXT_SENS_DATA populate before the first read
+    return true;
+}
+
 bool Mpu9250ImuArray::detectImu(ImuBinding& binding, uint8_t& whoAmI) {
     return readRegisters(binding.bus, binding.imu.getI2cAddress(), WHO_AM_I_REGISTER, &whoAmI, 1);
 }
@@ -187,36 +232,32 @@ bool Mpu9250ImuArray::updateImu(ImuBinding& binding) {
 
 bool Mpu9250ImuArray::readMagnetometer(ImuBinding& binding, int16_t& magX, int16_t& magY,
                                        int16_t& magZ) {
-    uint8_t status = 0;
-    if (!readRegisters(binding.bus, AK8963_I2C_ADDRESS, AK8963_ST1_REGISTER, &status, 1)) {
-        return false;
-    }
-
-    if ((status & AK8963_DATA_READY_BIT) == 0) {
-        return false;
-    }
-
-    uint8_t rawData[7] = {};
-    if (!readRegisters(binding.bus, AK8963_I2C_ADDRESS, AK8963_MEASUREMENT_START_REGISTER,
+    // The MPU9250's internal master continuously copies the AK8963's ST1 + 6 data bytes + ST2
+    // into EXT_SENS_DATA; read it here under the MPU9250's own address (no 0x0C on the external
+    // bus, so two MPU9250 can share a bus without their magnetometers colliding). One transaction.
+    uint8_t rawData[AK8963_SLV0_READ_LENGTH] = {};
+    if (!readRegisters(binding.bus, binding.imu.getI2cAddress(), EXT_SENS_DATA_00_REGISTER,
                        rawData, sizeof(rawData))) {
         return false;
     }
 
-    // ST2 (the last byte) must be read to unlatch the data registers for the next sample; its
-    // HOFL bit flags a magnetic overflow that invalidates this measurement -> skip it (the caller
-    // keeps mag at 0, so the orientation filter falls back to 6-DOF for this tick).
+    // rawData[0] = ST1: bit 0 (DRDY) signals a fresh measurement.
+    if ((rawData[0] & AK8963_DATA_READY_BIT) == 0) {
+        return false;
+    }
+
+    // rawData[7] = ST2: its HOFL bit flags a magnetic overflow that invalidates this measurement
+    // -> skip it (the caller keeps mag at 0, so the orientation filter falls back to 6-DOF here).
     if ((rawData[AK8963_ST2_REGISTER_OFFSET] & AK8963_OVERFLOW_BIT) != 0) {
         return false;
     }
 
-    // The AK8963 die is mounted rotated relative to the MPU9250's own accelerometer/gyroscope
-    // die, so its raw axes do not match theirs. The datasheet-documented remap is: magnetometer
-    // X/Y are swapped, and Z is inverted, relative to the accelerometer/gyroscope frame. The
-    // per-axis factory sensitivity adjustment (ASA, read at init) is then applied so the axes
-    // share a consistent gain; saturate back into int16 for the ImuSample contract.
-    magX = saturateToInt16(readLittleEndianInt16(rawData, 2) * binding.magAsa[0]);
-    magY = saturateToInt16(readLittleEndianInt16(rawData, 0) * binding.magAsa[1]);
-    magZ = saturateToInt16(-readLittleEndianInt16(rawData, 4) * binding.magAsa[2]);
+    // Data bytes start at index 1 (ST1 occupies index 0): HXL=1, HYL=3, HZL=5. The AK8963 die is
+    // mounted rotated vs the accel/gyro die, so the datasheet remap swaps X/Y and inverts Z; then
+    // apply the per-axis factory sensitivity (ASA) and saturate back into int16 for ImuSample.
+    magX = saturateToInt16(readLittleEndianInt16(rawData, 3) * binding.magAsa[0]);
+    magY = saturateToInt16(readLittleEndianInt16(rawData, 1) * binding.magAsa[1]);
+    magZ = saturateToInt16(-readLittleEndianInt16(rawData, 5) * binding.magAsa[2]);
     return true;
 }
 

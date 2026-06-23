@@ -72,9 +72,30 @@ private:
     static constexpr uint8_t AK8963_ASA_START_REGISTER = 0x10;
     static constexpr uint8_t AK8963_FUSE_ROM_ACCESS_MODE = 0x0F;
     static constexpr uint8_t AK8963_POWER_DOWN_MODE = 0x00;
-    static constexpr uint8_t AK8963_ST2_REGISTER_OFFSET = 6;
+    // Offset of ST2 within the 8-byte master-mode block [ST1, HXL..HZH, ST2] read from
+    // EXT_SENS_DATA (ST1 at index 0). ST2 must be read each cycle to unlatch the AK8963.
+    static constexpr uint8_t AK8963_ST2_REGISTER_OFFSET = 7;
     static constexpr uint8_t AK8963_OVERFLOW_BIT = 0x08;
     static constexpr uint16_t GYRO_BIAS_CALIBRATION_SAMPLES = 100;
+
+    // --- MPU9250 internal I2C master (reads each AK8963 via the MPU9250's own auxiliary bus,
+    // so the fixed AK8963 address 0x0C never appears on the shared external bus -> no collision
+    // when two MPU9250 share a bus). See docs/EXECUTION-CONTRACT magnetometer fix.
+    static constexpr uint8_t USER_CTRL_REGISTER = 0x6A;
+    static constexpr uint8_t I2C_MST_EN_VALUE = 0x20;
+    static constexpr uint8_t I2C_MST_CTRL_REGISTER = 0x24;
+    static constexpr uint8_t I2C_MST_CTRL_VALUE = 0x4D;  // WAIT_FOR_ES | 400kHz aux clock
+    static constexpr uint8_t I2C_SLV0_ADDR_REGISTER = 0x25;
+    static constexpr uint8_t I2C_SLV0_REG_REGISTER = 0x26;
+    static constexpr uint8_t I2C_SLV0_CTRL_REGISTER = 0x27;
+    static constexpr uint8_t EXT_SENS_DATA_00_REGISTER = 0x49;
+    static constexpr uint8_t AK8963_READ_FLAG = 0x80;
+    static constexpr uint8_t AK8963_SLV0_ADDR_VALUE = AK8963_READ_FLAG | AK8963_I2C_ADDRESS;  // 0x8C
+    static constexpr uint8_t AK8963_SLV0_READ_LENGTH = 8;  // ST1 + 6 data + ST2
+    static constexpr uint8_t I2C_SLV0_EN_VALUE = 0x80;
+    static constexpr uint8_t I2C_SLV0_CTRL_VALUE = I2C_SLV0_EN_VALUE | AK8963_SLV0_READ_LENGTH;  // 0x88
+    static constexpr uint8_t BYPASS_DISABLE_VALUE = 0x00;
+    static constexpr uint8_t MAGNETOMETER_MASTER_SETTLE_MS = 10;
 
     ImuBinding imus[3];
 
@@ -83,6 +104,7 @@ private:
     bool wakeImu(ImuBinding& binding);
     bool enableMagnetometerBypass(ImuBinding& binding);
     bool initializeMagnetometer(ImuBinding& binding);
+    bool enableMagnetometerMasterMode(ImuBinding& binding);
     bool updateImu(ImuBinding& binding);
     void calibrateGyroBias(ImuBinding& binding);
     bool readMagnetometer(ImuBinding& binding, int16_t& magX, int16_t& magY, int16_t& magZ);
