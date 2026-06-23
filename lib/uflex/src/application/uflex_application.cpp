@@ -5,15 +5,19 @@
 #include "uflex/application/uflex_application.h"
 
 #include <Arduino.h>
+#include <string.h>
 
 #include "config/build_config.h"
 #include "uflex/domain/actuators/active_buzzer.h"
 #include "uflex/domain/actuators/rgb_led.h"
 #include "uflex/domain/actuators/vibration_motor.h"
 #include "uflex/domain/devices/motion_state.h"
+#include "uflex/domain/math/quaternion.h"
+#include "uflex/infrastructure/transport/ble_motion_telemetry_mapper.h"
 #include "uflex/infrastructure/transport/motion_payload.h"
 #include "uflex/infrastructure/transport/motion_payload_mapper.h"
 #include "uflex/infrastructure/transport/motion_payload_serializer.h"
+#include "uflex/infrastructure/transport/sample_batch_payload.h"
 
 /**
  * @file uflex_application.cpp
@@ -30,16 +34,20 @@
 
 UflexApplication::UflexApplication(UflexRuntime& runtime)
     : runtime(runtime),
-      edgeClient({UFLEX_WIFI_SSID, UFLEX_WIFI_PASSWORD, UFLEX_WIFI_CHANNEL, UFLEX_EDGE_HOST,
-                  UFLEX_EDGE_PORT, UFLEX_EDGE_PATH, UFLEX_DEVICE_ID, UFLEX_DEVICE_API_KEY}),
-      lastReadAt(0) {}
+      lastReadAt(0),
+      lastEdgePublishAt(0),
+      lastOrientationUpdateAt(0),
+      lastSerialLogAt(0),
+      lastDownChannelPollAt(0),
+      hasOrientationBaseline(false),
+      bleSequenceNumber(0),
+      lastCalibratedSerieId{} {}
 
 void UflexApplication::begin() {
     Serial.printf("uFlex motion probe (%s target)\n", UFLEX_BUILD_TARGET_NAME);
     runtime.begin();
     pulseBuzzer(2);
     pulseVibrationMotor(2);
-    edgeClient.begin();
     Serial.println();
 }
 
@@ -53,11 +61,52 @@ void UflexApplication::loop() {
     lastReadAt = now;
 
     if (runtime.update()) {
-        pulseBuzzer(1);
-        pulseVibrationMotor(1);
-        runtime.getDevice().handle(RgbLed::ADVANCE_COLOR_COMMAND);
+        advanceOrientationFilters();
+
+        const MotionState motionState = runtime.getDevice().getMotionState();
+        const MotionPayload motionPayload = MotionPayloadMapper::map(motionState);
+
+        pollActiveContextIfDue();
+
+        const float targetAngle = computeTargetAngle(motionState);
+        const float proximalSignal = yawDegrees(runtime.getDevice().getUpperOrientation());
+
+        // Local safety reaction runs every cycle and reaches the pins immediately,
+        // independent of the network (it uses the cached active context).
+        enforceSafety(targetAngle);
         runtime.applyOutputs();
-        logAllSamples();
+
+        publishBleTelemetry(motionState);
+        publishToEdgeIfDue(targetAngle, proximalSignal);
+        logAllSamplesIfDue(motionState, motionPayload);
+    }
+}
+
+void UflexApplication::advanceOrientationFilters() {
+    const unsigned long now = millis();
+
+    if (!hasOrientationBaseline) {
+        lastOrientationUpdateAt = now;
+        hasOrientationBaseline = true;
+        return;
+    }
+
+    const float deltaTimeSeconds = static_cast<float>(now - lastOrientationUpdateAt) / 1000.0f;
+    lastOrientationUpdateAt = now;
+
+    runtime.getDevice().updateOrientations(deltaTimeSeconds);
+}
+
+void UflexApplication::publishBleTelemetry(const MotionState& motionState) {
+    UflexDevice& device = runtime.getDevice();
+    const BleMotionTelemetry telemetry = BleMotionTelemetryMapper::map(
+        motionState, device.getStatusLed().getColor(), device.getStatusBuzzer().isEnabled(),
+        device.getVibrationMotor().isEnabled(), bleSequenceNumber);
+    ++bleSequenceNumber;
+
+    BleTransport& bleTransport = runtime.getBleTransport();
+    if (bleTransport.isReady()) {
+        bleTransport.publish(telemetry);
     }
 }
 
@@ -97,15 +146,19 @@ void UflexApplication::pulseVibrationMotor(size_t pulseCount) {
     }
 }
 
-void UflexApplication::logAllSamples() {
-    const MotionState motionState = runtime.getDevice().getMotionState();
+void UflexApplication::logAllSamplesIfDue(const MotionState& motionState,
+                                          const MotionPayload& motionPayload) {
+    const unsigned long now = millis();
+    if (now - lastSerialLogAt < SERIAL_LOG_INTERVAL_MS) {
+        return;
+    }
+    lastSerialLogAt = now;
 
     logSample("imu1", motionState.upperSample, runtime.getDevice().getUpperImu().getI2cAddress());
     logSample("imu2", motionState.middleSample,
               runtime.getDevice().getMiddleImu().getI2cAddress());
     logSample("imu3", motionState.lowerSample, runtime.getDevice().getLowerImu().getI2cAddress());
 
-    const MotionPayload motionPayload = MotionPayloadMapper::map(motionState);
     char payloadBuffer[MOTION_PAYLOAD_BUFFER_SIZE] = {};
 
     Serial.printf("upper-middle: pitch=%.2f roll=%.2f\n",
@@ -125,9 +178,72 @@ void UflexApplication::logAllSamples() {
         Serial.println("payload: serialization failed");
     }
 
-    // The edge gateway currently ingests a single flexion angle per record, so
-    // we forward the full-limb (upper-to-lower) pitch as the joint angle.
-    edgeClient.publishAngle(motionPayload.upperLowerAngle.pitchDegrees);
-
     Serial.println();
+}
+
+void UflexApplication::publishToEdgeIfDue(float targetAngleDegrees, float proximalSignalDegrees) {
+    const unsigned long now = millis();
+    if (now - lastEdgePublishAt < EDGE_PUBLISH_INTERVAL_MS) {
+        return;
+    }
+    lastEdgePublishAt = now;
+
+    EdgeTransport& edgeTransport = runtime.getEdgeTransport();
+    if (!edgeTransport.isReady()) {
+        return;
+    }
+
+    // First cut: a batch of one at ~10Hz. Growing the batch needs no edge change.
+    const JointSample sample{targetAngleDegrees, proximalSignalDegrees};
+    const SampleBatchPayload payload{UFLEX_SERIAL_NUMBER, &sample, 1};
+    edgeTransport.publishSamples(payload);
+}
+
+void UflexApplication::pollActiveContextIfDue() {
+    const unsigned long now = millis();
+    if (now - lastDownChannelPollAt < DOWN_CHANNEL_POLL_INTERVAL_MS) {
+        return;
+    }
+    lastDownChannelPollAt = now;
+
+    EdgeTransport& edgeTransport = runtime.getEdgeTransport();
+    if (!edgeTransport.isReady()) {
+        return;
+    }
+
+    ActiveSerieContext fetched;
+    if (!edgeTransport.fetchActiveContext(fetched)) {
+        return; // keep the last-known context on a failed poll
+    }
+    activeContext = fetched;
+
+    // Guided calibration: the patient was cued into the reference pose at serie
+    // start, so capture the zero once per new serie (see EXECUTION-CONTRACT).
+    if (activeContext.hasContext &&
+        strcmp(activeContext.serieId, lastCalibratedSerieId) != 0) {
+        const Quaternion zeroPose =
+            activeJointRotation(runtime.getDevice().getMotionState(), activeContext.activeJoint);
+        jointAngleCalculator.calibrate(zeroPose);
+        strncpy(lastCalibratedSerieId, activeContext.serieId, sizeof(lastCalibratedSerieId) - 1);
+        lastCalibratedSerieId[sizeof(lastCalibratedSerieId) - 1] = '\0';
+        Serial.printf("calib: zeroed joint=%d serie=%s maxSafe=%.1f\n",
+                      static_cast<int>(activeContext.activeJoint), activeContext.serieId,
+                      activeContext.hasMaxSafeAngle ? activeContext.maxSafeAngle : -1.0f);
+    }
+}
+
+float UflexApplication::computeTargetAngle(const MotionState& motionState) {
+    const Quaternion rotation = activeJointRotation(motionState, activeContext.activeJoint);
+    return jointAngleCalculator.absoluteFlexionDegrees(rotation);
+}
+
+void UflexApplication::enforceSafety(float targetAngleDegrees) {
+    UflexDevice& device = runtime.getDevice();
+    if (exceedsSafeAngle(targetAngleDegrees, activeContext)) {
+        device.handle(VibrationMotor::TURN_ON_COMMAND);
+        device.handle(ActiveBuzzer::TURN_ON_COMMAND);
+    } else {
+        device.handle(VibrationMotor::TURN_OFF_COMMAND);
+        device.handle(ActiveBuzzer::TURN_OFF_COMMAND);
+    }
 }

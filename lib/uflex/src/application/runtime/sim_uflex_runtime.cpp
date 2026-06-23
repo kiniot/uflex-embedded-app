@@ -6,6 +6,8 @@
 
 #include <Arduino.h>
 
+#include "config/build_config.h"
+
 /**
  * @file sim_uflex_runtime.cpp
  * @brief Implements the simulation runtime for uFlex.
@@ -27,7 +29,10 @@ SimUflexRuntime::SimUflexRuntime()
                         {device.getLowerImu(), secondaryBus}),
       statusBuzzer(BUZZER_PIN),
       statusLed(RGB_RED_PIN, RGB_GREEN_PIN, RGB_BLUE_PIN),
-      vibrationMotor(VIBRATION_MOTOR_PIN) {}
+      vibrationMotor(VIBRATION_MOTOR_PIN),
+      edgeClient({UFLEX_WIFI_SSID, UFLEX_WIFI_PASSWORD, UFLEX_WIFI_CHANNEL, UFLEX_EDGE_HOST,
+                  UFLEX_EDGE_PORT, UFLEX_EDGE_PATH, UFLEX_EDGE_DOWN_CHANNEL_PATH,
+                  UFLEX_SERIAL_NUMBER, UFLEX_DEVICE_API_KEY}) {}
 
 bool SimUflexRuntime::begin() {
     statusBuzzer.begin();
@@ -45,6 +50,11 @@ bool SimUflexRuntime::begin() {
     Serial.println("Initializing simulated MPU6050 sensors...");
 
     applyOutputs();
+
+    if (!edgeClient.begin()) {
+        Serial.println("Edge gateway unreachable; continuing without network publishing.");
+    }
+
     return simulatedImuArray.begin();
 }
 
@@ -60,4 +70,12 @@ void SimUflexRuntime::applyOutputs() {
 
 UflexDevice& SimUflexRuntime::getDevice() {
     return device;
+}
+
+EdgeTransport& SimUflexRuntime::getEdgeTransport() {
+    return edgeClient;
+}
+
+BleTransport& SimUflexRuntime::getBleTransport() {
+    return bleTransport;
 }

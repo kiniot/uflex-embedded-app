@@ -5,6 +5,7 @@
 #ifndef UFLEX_DOMAIN_DEVICES_MOTION_STATE_H
 #define UFLEX_DOMAIN_DEVICES_MOTION_STATE_H
 
+#include "uflex/domain/math/quaternion.h"
 #include "uflex/domain/sensors/imu_sample.h"
 #include "uflex/domain/services/relative_angle_calculator.h"
 
@@ -13,9 +14,10 @@
  * @brief Declares the aggregated motion snapshot for the uFlex domain.
  *
  * MotionState represents the processed state currently exposed by the central
- * domain device. It keeps the latest IMU samples together with the relative
- * angles derived from them so application and transport layers can consume a
- * stable view of the current motion frame.
+ * domain device. It keeps the latest IMU samples, the accelerometer-only
+ * relative angles, and the fused relative rotations (full orientation, derived
+ * from OrientationFilter quaternions) so application and transport layers can
+ * consume a stable view of the current motion frame.
  *
  * @author Salim Ramirez
  * @date June 8, 2026
@@ -28,6 +30,9 @@ struct MotionState {
     RelativeAngle upperMiddleAngle;
     RelativeAngle middleLowerAngle;
     RelativeAngle upperLowerAngle;
+    Quaternion upperMiddleRotation;
+    Quaternion middleLowerRotation;
+    Quaternion upperLowerRotation;
 };
 
 #endif // UFLEX_DOMAIN_DEVICES_MOTION_STATE_H
