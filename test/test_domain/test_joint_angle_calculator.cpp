@@ -46,6 +46,17 @@ void testReCalibrationMovesTheZero() {
     TEST_ASSERT_FLOAT_WITHIN(kTolerance, 20.0f, calculator.absoluteFlexionDegrees(rotationAboutX(70.0f)));
 }
 
+void testResetReturnsToUncalibrated() {
+    JointAngleCalculator calculator;
+    calculator.calibrate(rotationAboutX(20.0f));
+
+    calculator.reset();
+
+    TEST_ASSERT_FALSE(calculator.isCalibrated());
+    // Back to the identity zero -> raw magnitude again.
+    TEST_ASSERT_FLOAT_WITHIN(kTolerance, 60.0f, calculator.absoluteFlexionDegrees(rotationAboutX(60.0f)));
+}
+
 } // namespace
 
 void runJointAngleCalculatorTests() {
@@ -53,4 +64,5 @@ void runJointAngleCalculatorTests() {
     RUN_TEST(testCalibratedZeroPoseReadsZero);
     RUN_TEST(testAngleMeasuredFromCalibratedZero);
     RUN_TEST(testReCalibrationMovesTheZero);
+    RUN_TEST(testResetReturnsToUncalibrated);
 }

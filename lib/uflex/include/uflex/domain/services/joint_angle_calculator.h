@@ -41,6 +41,15 @@ public:
      */
     bool isCalibrated() const;
 
+    /**
+     * @brief Drops the captured zero, returning to the uncalibrated state.
+     *
+     * Called when the active serie context is lost or expires, so safety stays
+     * disarmed (see SafetyMonitor) until a fresh zero is captured for the next
+     * serie rather than enforcing against a stale reference.
+     */
+    void reset();
+
 private:
     Quaternion zeroReference = Quaternion::identity();
     bool calibrated = false;

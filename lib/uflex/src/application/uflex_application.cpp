@@ -39,9 +39,15 @@ UflexApplication::UflexApplication(UflexRuntime& runtime)
       lastOrientationUpdateAt(0),
       lastSerialLogAt(0),
       lastDownChannelPollAt(0),
+      lastContextOkAt(0),
       hasOrientationBaseline(false),
       bleSequenceNumber(0),
-      lastCalibratedSerieId{} {}
+      lastCalibratedSerieId{},
+      pendingCalibrationSerieId{},
+      calibrationPending(false),
+      calibrationPendingSince(0),
+      settleDetector(SETTLE_GYRO_THRESHOLD_LSB, SETTLE_REQUIRED_CYCLES),
+      lastSafetyTriggered(false) {}
 
 void UflexApplication::begin() {
     Serial.printf("uFlex motion probe (%s target)\n", UFLEX_BUILD_TARGET_NAME);
@@ -66,14 +72,21 @@ void UflexApplication::loop() {
         const MotionState motionState = runtime.getDevice().getMotionState();
         const MotionPayload motionPayload = MotionPayloadMapper::map(motionState);
 
-        pollActiveContextIfDue();
+        pollActiveContextIfDue(now);
+
+        // A context is only "alive" if a poll succeeded recently (TTL). On loss this
+        // disarms safety and drops the stale zero; while a new serie waits to settle,
+        // it captures the zero (serviceCalibration) before the angle is computed.
+        const bool ctxAlive = contextAlive(now);
+        serviceCalibration(motionState, ctxAlive, now);
 
         const float targetAngle = computeTargetAngle(motionState);
         const float proximalSignal = yawDegrees(runtime.getDevice().getUpperOrientation());
 
         // Local safety reaction runs every cycle and reaches the pins immediately,
-        // independent of the network (it uses the cached active context).
-        enforceSafety(targetAngle);
+        // independent of the network (it uses the cached active context). Armed only
+        // with a fresh context + valid zero; latched with hysteresis.
+        updateSafety(targetAngle, ctxAlive);
         runtime.applyOutputs();
 
         publishBleTelemetry(motionState);
@@ -199,8 +212,7 @@ void UflexApplication::publishToEdgeIfDue(float targetAngleDegrees, float proxim
     edgeTransport.publishSamples(payload);
 }
 
-void UflexApplication::pollActiveContextIfDue() {
-    const unsigned long now = millis();
+void UflexApplication::pollActiveContextIfDue(unsigned long now) {
     if (now - lastDownChannelPollAt < DOWN_CHANNEL_POLL_INTERVAL_MS) {
         return;
     }
@@ -213,21 +225,25 @@ void UflexApplication::pollActiveContextIfDue() {
 
     ActiveSerieContext fetched;
     if (!edgeTransport.fetchActiveContext(fetched)) {
-        return; // keep the last-known context on a failed poll
+        return; // keep the last-known context on a failed poll; the TTL disarms if it persists
     }
     activeContext = fetched;
+    lastContextOkAt = now;
 
-    // Guided calibration: the patient was cued into the reference pose at serie
-    // start, so capture the zero once per new serie (see EXECUTION-CONTRACT).
+    // New serie: defer the zero capture until the arm settles (serviceCalibration),
+    // and drop any prior zero so safety stays disarmed during the settle window
+    // rather than enforcing the new ceiling against the previous serie's reference.
     if (activeContext.hasContext &&
-        strcmp(activeContext.serieId, lastCalibratedSerieId) != 0) {
-        const Quaternion zeroPose =
-            activeJointRotation(runtime.getDevice().getMotionState(), activeContext.activeJoint);
-        jointAngleCalculator.calibrate(zeroPose);
-        strncpy(lastCalibratedSerieId, activeContext.serieId, sizeof(lastCalibratedSerieId) - 1);
-        lastCalibratedSerieId[sizeof(lastCalibratedSerieId) - 1] = '\0';
-        Serial.printf("calib: zeroed joint=%d serie=%s maxSafe=%.1f\n",
-                      static_cast<int>(activeContext.activeJoint), activeContext.serieId,
+        strcmp(activeContext.serieId, lastCalibratedSerieId) != 0 &&
+        strcmp(activeContext.serieId, pendingCalibrationSerieId) != 0) {
+        strncpy(pendingCalibrationSerieId, activeContext.serieId, sizeof(pendingCalibrationSerieId) - 1);
+        pendingCalibrationSerieId[sizeof(pendingCalibrationSerieId) - 1] = '\0';
+        calibrationPending = true;
+        calibrationPendingSince = now;
+        settleDetector.reset();
+        jointAngleCalculator.reset();
+        Serial.printf("calib: deferred (waiting for settle) serie=%s maxSafe=%.1f\n",
+                      activeContext.serieId,
                       activeContext.hasMaxSafeAngle ? activeContext.maxSafeAngle : -1.0f);
     }
 }
@@ -237,9 +253,75 @@ float UflexApplication::computeTargetAngle(const MotionState& motionState) {
     return jointAngleCalculator.absoluteFlexionDegrees(rotation);
 }
 
-void UflexApplication::enforceSafety(float targetAngleDegrees) {
+bool UflexApplication::contextAlive(unsigned long now) const {
+    return activeContext.hasContext && (now - lastContextOkAt) <= CONTEXT_TTL_MS;
+}
+
+float UflexApplication::maxGyroMagnitude(const MotionState& motionState) {
+    float maxMag = gyroMagnitude(motionState.upperSample);
+    const float middle = gyroMagnitude(motionState.middleSample);
+    const float lower = gyroMagnitude(motionState.lowerSample);
+    if (middle > maxMag) maxMag = middle;
+    if (lower > maxMag) maxMag = lower;
+    return maxMag;
+}
+
+void UflexApplication::serviceCalibration(const MotionState& motionState, bool contextIsAlive,
+                                          unsigned long now) {
+    if (!contextIsAlive) {
+        // Context lost (session ended) or expired (no poll within TTL): drop any zero
+        // and pending capture so safety disarms instead of enforcing a stale ceiling.
+        if (jointAngleCalculator.isCalibrated() || calibrationPending) {
+            jointAngleCalculator.reset();
+            calibrationPending = false;
+            lastCalibratedSerieId[0] = '\0';
+            pendingCalibrationSerieId[0] = '\0';
+            Serial.println("ctx: lost/expired -> safety disarmed, calibration reset");
+        }
+        return;
+    }
+
+    if (!calibrationPending) {
+        return;
+    }
+
+    const bool settled = settleDetector.update(maxGyroMagnitude(motionState));
+    const bool timedOut = (now - calibrationPendingSince) >= CALIBRATION_SETTLE_TIMEOUT_MS;
+    if (!settled && !timedOut) {
+        return; // keep waiting for the arm to hold still
+    }
+
+    const Quaternion zeroPose = activeJointRotation(motionState, activeContext.activeJoint);
+    jointAngleCalculator.calibrate(zeroPose);
+    strncpy(lastCalibratedSerieId, pendingCalibrationSerieId, sizeof(lastCalibratedSerieId) - 1);
+    lastCalibratedSerieId[sizeof(lastCalibratedSerieId) - 1] = '\0';
+    calibrationPending = false;
+    Serial.printf("calib: zeroed joint=%d serie=%s maxSafe=%.1f (%s)\n",
+                  static_cast<int>(activeContext.activeJoint), lastCalibratedSerieId,
+                  activeContext.hasMaxSafeAngle ? activeContext.maxSafeAngle : -1.0f,
+                  settled ? "settled" : "timeout-fallback");
+}
+
+void UflexApplication::updateSafety(float targetAngleDegrees, bool contextIsAlive) {
+    const bool actuate = safetyMonitor.evaluate(targetAngleDegrees, activeContext,
+                                                jointAngleCalculator.isCalibrated(), contextIsAlive,
+                                                SAFE_HYSTERESIS_DEG);
+    applySafetyOutputs(actuate);
+
+    if (actuate != lastSafetyTriggered) {
+        if (actuate) {
+            Serial.printf("safety: TRIGGER angle=%.1f >= maxSafe=%.1f\n", targetAngleDegrees,
+                          activeContext.hasMaxSafeAngle ? activeContext.maxSafeAngle : -1.0f);
+        } else {
+            Serial.printf("safety: clear angle=%.1f\n", targetAngleDegrees);
+        }
+        lastSafetyTriggered = actuate;
+    }
+}
+
+void UflexApplication::applySafetyOutputs(bool on) {
     UflexDevice& device = runtime.getDevice();
-    if (exceedsSafeAngle(targetAngleDegrees, activeContext)) {
+    if (on) {
         device.handle(VibrationMotor::TURN_ON_COMMAND);
         device.handle(ActiveBuzzer::TURN_ON_COMMAND);
     } else {

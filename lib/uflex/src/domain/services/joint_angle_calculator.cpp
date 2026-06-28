@@ -30,3 +30,8 @@ float JointAngleCalculator::absoluteFlexionDegrees(const Quaternion& relativeRot
 bool JointAngleCalculator::isCalibrated() const {
     return calibrated;
 }
+
+void JointAngleCalculator::reset() {
+    zeroReference = Quaternion::identity();
+    calibrated = false;
+}

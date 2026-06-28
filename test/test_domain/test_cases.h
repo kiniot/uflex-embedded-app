@@ -15,5 +15,7 @@ void runBleMotionTelemetryTests();
 void runSampleBatchSerializerTests();
 void runJointTargetingTests();
 void runActiveContextParserTests();
+void runSafetyMonitorTests();
+void runSettleDetectorTests();
 
 #endif // UFLEX_TEST_CASES_H
