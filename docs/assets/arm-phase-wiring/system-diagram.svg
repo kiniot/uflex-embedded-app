@@ -1,0 +1,156 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 820" font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#475569"/>
+    </marker>
+    <marker id="arrowP" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#d97706"/>
+    </marker>
+    <marker id="arrowI" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#2563eb"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1200" height="820" rx="10" fill="#ffffff"/>
+  <text x="32" y="40" font-size="24" font-weight="700" fill="#0f172a">uFlex — Arm-phase system wiring</text>
+  <text x="32" y="64" font-size="14" fill="#64748b">Power chain · TCA9548A I²C mux · 3× MPU9250 satellites · local actuators</text>
+
+  <!-- ===================== POWER CHAIN (left column) ===================== -->
+  <text x="40" y="108" font-size="13" font-weight="700" fill="#d97706">POWER</text>
+
+  <rect x="40" y="120" width="200" height="56" rx="8" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
+  <text x="140" y="144" font-size="14" font-weight="700" fill="#92400e" text-anchor="middle">LiPo 3.7 V</text>
+  <text x="140" y="163" font-size="12" fill="#92400e" text-anchor="middle">1000 mAh</text>
+
+  <rect x="40" y="206" width="200" height="56" rx="8" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
+  <text x="140" y="230" font-size="14" font-weight="700" fill="#92400e" text-anchor="middle">TP4056-PROT</text>
+  <text x="140" y="249" font-size="12" fill="#92400e" text-anchor="middle">charge + protection</text>
+
+  <rect x="40" y="292" width="200" height="50" rx="8" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
+  <text x="140" y="322" font-size="14" font-weight="700" fill="#92400e" text-anchor="middle">slider switch (ON/OFF)</text>
+
+  <rect x="40" y="372" width="200" height="64" rx="8" fill="#fed7aa" stroke="#d97706" stroke-width="2"/>
+  <text x="140" y="397" font-size="14" font-weight="700" fill="#9a3412" text-anchor="middle">MT3608 step-up</text>
+  <text x="140" y="417" font-size="13" font-weight="700" fill="#9a3412" text-anchor="middle">set to 5.0 V ⚠</text>
+
+  <!-- power arrows -->
+  <line x1="140" y1="176" x2="140" y2="206" stroke="#d97706" stroke-width="2" marker-end="url(#arrowP)"/>
+  <line x1="140" y1="262" x2="140" y2="292" stroke="#d97706" stroke-width="2" marker-end="url(#arrowP)"/>
+  <line x1="140" y1="342" x2="140" y2="372" stroke="#d97706" stroke-width="2" marker-end="url(#arrowP)"/>
+  <!-- MT3608 5V to ESP32 5V -->
+  <path d="M240,404 L300,404 L300,200 L360,200" fill="none" stroke="#d97706" stroke-width="2.5" marker-end="url(#arrowP)"/>
+  <text x="312" y="300" font-size="12" font-weight="700" fill="#d97706">5 V</text>
+
+  <!-- ===================== ESP32 ===================== -->
+  <rect x="362" y="150" width="180" height="300" rx="10" fill="#1f2937" stroke="#0f172a" stroke-width="2"/>
+  <text x="452" y="182" font-size="17" font-weight="700" fill="#f8fafc" text-anchor="middle">ESP32</text>
+  <text x="452" y="201" font-size="12" fill="#cbd5e1" text-anchor="middle">WROOM-32</text>
+  <line x1="378" y1="214" x2="526" y2="214" stroke="#475569" stroke-width="1"/>
+
+  <!-- pin labels -->
+  <text x="378" y="200" font-size="11" fill="#fbbf24">5V◀</text>
+  <text x="452" y="236" font-size="12" fill="#86efac" text-anchor="middle">3V3 → rail</text>
+  <text x="452" y="258" font-size="11" fill="#94a3b8" text-anchor="middle">GND (common)</text>
+
+  <text x="528" y="290" font-size="11.5" fill="#93c5fd" text-anchor="end">GPIO21 SDA ▶</text>
+  <text x="528" y="308" font-size="11.5" fill="#93c5fd" text-anchor="end">GPIO22 SCL ▶</text>
+  <text x="528" y="346" font-size="11.5" fill="#86efac" text-anchor="end">GPIO32 ▶</text>
+  <text x="528" y="368" font-size="11.5" fill="#86efac" text-anchor="end">GPIO27 ▶</text>
+  <text x="528" y="390" font-size="11.5" fill="#86efac" text-anchor="end">GPIO18 ▶</text>
+  <text x="528" y="408" font-size="11.5" fill="#86efac" text-anchor="end">GPIO19 ▶</text>
+  <text x="528" y="426" font-size="11.5" fill="#86efac" text-anchor="end">GPIO23 ▶</text>
+
+  <!-- 3V3 rail node -->
+  <rect x="372" y="470" width="760" height="26" rx="6" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="386" y="488" font-size="12" font-weight="700" fill="#15803d">3V3 rail → mux · 3× IMU VCC · actuator high-side</text>
+  <line x1="452" y1="226" x2="452" y2="470" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="4 3"/>
+
+  <!-- ===================== TCA9548A MUX ===================== -->
+  <rect x="600" y="252" width="170" height="150" rx="10" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+  <text x="685" y="280" font-size="15" font-weight="700" fill="#5b21b6" text-anchor="middle">TCA9548A</text>
+  <text x="685" y="298" font-size="12" fill="#6d28d9" text-anchor="middle">I²C mux · 0x70</text>
+  <text x="610" y="324" font-size="11" fill="#6d28d9">A0/A1/A2 → GND</text>
+  <text x="610" y="342" font-size="11" fill="#6d28d9">RST → 3V3</text>
+  <text x="610" y="360" font-size="11" fill="#6d28d9">VIN → 3V3 · GND</text>
+  <text x="610" y="386" font-size="11" font-weight="700" fill="#5b21b6">SC0/1/2 · SD0/1/2 ▶</text>
+
+  <!-- I2C ESP32 -> mux -->
+  <path d="M542,290 L572,290 L572,300 L600,300" fill="none" stroke="#2563eb" stroke-width="2.5" marker-end="url(#arrowI)"/>
+  <path d="M542,308 L582,308 L582,316 L600,316" fill="none" stroke="#2563eb" stroke-width="2.5" marker-end="url(#arrowI)"/>
+  <text x="548" y="278" font-size="11" font-weight="700" fill="#2563eb">I²C (100 kHz)</text>
+
+  <!-- ===================== IMUs ===================== -->
+  <!-- IMU1 forearm ch0 -->
+  <rect x="850" y="120" width="320" height="70" rx="10" fill="#e0e7ff" stroke="#4338ca" stroke-width="1.5"/>
+  <text x="864" y="146" font-size="14" font-weight="700" fill="#3730a3">MPU9250 #1 — FOREARM (local)</text>
+  <text x="864" y="167" font-size="11.5" fill="#4338ca">channel 0 · AD0→GND 0x68 · AK8963 0x0C (isolated)</text>
+  <text x="864" y="182" font-size="11" fill="#6366f1">main board — no long cable</text>
+
+  <!-- IMU2 biceps ch1 -->
+  <rect x="850" y="252" width="320" height="70" rx="10" fill="#e0e7ff" stroke="#4338ca" stroke-width="1.5"/>
+  <text x="864" y="278" font-size="14" font-weight="700" fill="#3730a3">MPU9250 #2 — BICEPS (remote)</text>
+  <text x="864" y="299" font-size="11.5" fill="#4338ca">channel 1 · AD0→GND 0x68 · AK8963 0x0C (isolated)</text>
+  <text x="864" y="314" font-size="11" fill="#6366f1">4-wire silicone: 3V3 · GND · SD1 · SC1</text>
+
+  <!-- IMU3 hand ch2 -->
+  <rect x="850" y="384" width="320" height="70" rx="10" fill="#e0e7ff" stroke="#4338ca" stroke-width="1.5"/>
+  <text x="864" y="410" font-size="14" font-weight="700" fill="#3730a3">MPU9250 #3 — HAND (remote)</text>
+  <text x="864" y="431" font-size="11.5" fill="#4338ca">channel 2 · AD0→GND 0x68 · AK8963 0x0C (isolated)</text>
+  <text x="864" y="446" font-size="11" fill="#6366f1">4-wire silicone: 3V3 · GND · SD2 · SC2</text>
+
+  <!-- mux -> IMUs -->
+  <path d="M770,300 L810,300 L810,155 L850,155" fill="none" stroke="#4338ca" stroke-width="2" marker-end="url(#arrowI)"/>
+  <path d="M770,318 L830,318 L830,287 L850,287" fill="none" stroke="#4338ca" stroke-width="2" marker-end="url(#arrowI)"/>
+  <path d="M770,336 L810,336 L810,419 L850,419" fill="none" stroke="#4338ca" stroke-width="2" marker-end="url(#arrowI)"/>
+
+  <!-- ===================== ACTUATORS ===================== -->
+  <text x="40" y="548" font-size="13" font-weight="700" fill="#059669">LOCAL ACTUATORS (forearm)</text>
+
+  <!-- Motor -->
+  <rect x="300" y="560" width="250" height="120" rx="10" fill="#d1fae5" stroke="#059669" stroke-width="1.5"/>
+  <text x="314" y="585" font-size="13.5" font-weight="700" fill="#065f46">Vibration motor</text>
+  <text x="314" y="606" font-size="11.5" fill="#047857">GPIO32 → 1 kΩ → 2N2222 base</text>
+  <text x="314" y="623" font-size="11.5" fill="#047857">motor between 3V3 and collector</text>
+  <text x="314" y="640" font-size="11.5" fill="#047857">1N4148 flyback (cathode → 3V3)</text>
+  <text x="314" y="663" font-size="11" fill="#10b981">⚠ flyback mandatory (inductive)</text>
+
+  <!-- Buzzer -->
+  <rect x="572" y="560" width="230" height="120" rx="10" fill="#d1fae5" stroke="#059669" stroke-width="1.5"/>
+  <text x="586" y="585" font-size="13.5" font-weight="700" fill="#065f46">Active buzzer 3.3 V</text>
+  <text x="586" y="606" font-size="11.5" fill="#047857">GPIO27 → 1 kΩ → 2N2222 base</text>
+  <text x="586" y="623" font-size="11.5" fill="#047857">buzzer between 3V3 and collector</text>
+  <text x="586" y="646" font-size="11" fill="#10b981">via transistor (~30 mA > GPIO)</text>
+
+  <!-- RGB -->
+  <rect x="824" y="560" width="250" height="120" rx="10" fill="#d1fae5" stroke="#059669" stroke-width="1.5"/>
+  <text x="838" y="585" font-size="13.5" font-weight="700" fill="#065f46">RGB LED (common cathode)</text>
+  <text x="838" y="606" font-size="11.5" fill="#047857">GPIO18/19/23 → 220 Ω → R/G/B</text>
+  <text x="838" y="623" font-size="11.5" fill="#047857">COM → GND</text>
+  <text x="838" y="646" font-size="11" fill="#10b981">direct drive (no transistor)</text>
+
+  <!-- gpio arrows to actuators -->
+  <path d="M542,346 L470,346 L470,560" fill="none" stroke="#059669" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M542,368 L640,368 L640,560" fill="none" stroke="#059669" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M542,408 L920,408 L920,560" fill="none" stroke="#059669" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ===================== LEGEND ===================== -->
+  <rect x="40" y="708" width="1130" height="88" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="56" y="730" font-size="12.5" font-weight="700" fill="#334155">LEGEND</text>
+  <rect x="120" y="721" width="20" height="11" fill="#fed7aa" stroke="#d97706"/>
+  <text x="146" y="730" font-size="12" fill="#475569">power chain</text>
+  <rect x="250" y="721" width="20" height="11" fill="#ede9fe" stroke="#7c3aed"/>
+  <text x="276" y="730" font-size="12" fill="#475569">I²C mux</text>
+  <rect x="360" y="721" width="20" height="11" fill="#e0e7ff" stroke="#4338ca"/>
+  <text x="386" y="730" font-size="12" fill="#475569">IMU (per channel)</text>
+  <rect x="520" y="721" width="20" height="11" fill="#d1fae5" stroke="#059669"/>
+  <text x="546" y="730" font-size="12" fill="#475569">actuators</text>
+  <line x1="640" y1="726" x2="668" y2="726" stroke="#2563eb" stroke-width="2.5"/>
+  <text x="674" y="730" font-size="12" fill="#475569">I²C bus</text>
+  <line x1="740" y1="726" x2="768" y2="726" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text x="774" y="730" font-size="12" fill="#475569">3V3 rail</text>
+
+  <text x="56" y="758" font-size="12" fill="#334155" font-weight="700">⚠ Safety:</text>
+  <text x="128" y="758" font-size="12" fill="#475569">set MT3608 to 5.0 V before connecting the ESP32 · do not power USB and battery-5V at once · common GND · check B+/B- polarity.</text>
+  <text x="56" y="780" font-size="12" fill="#334155" font-weight="700">Pins (firmware):</text>
+  <text x="160" y="780" font-size="12" fill="#475569">I²C 21/22 → mux upstream · RGB 18/19/23 · buzzer 27 · motor 32 · GPIO25/26 freed (mux replaces the second bus).</text>
+</svg>
