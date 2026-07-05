@@ -52,8 +52,6 @@ private:
     static constexpr unsigned long SERIAL_LOG_INTERVAL_MS = 1000;
     static constexpr unsigned long BUZZER_PULSE_MS = 100;
     static constexpr unsigned long BUZZER_PULSE_GAP_MS = 100;
-    static constexpr unsigned long VIBRATION_MOTOR_PULSE_MS = 250;
-    static constexpr unsigned long VIBRATION_MOTOR_PULSE_GAP_MS = 250;
     static constexpr size_t MOTION_PAYLOAD_BUFFER_SIZE = 256;
     // Safety stays armed only while the active context is fresh. If no down-channel
     // poll has succeeded within this window (session ended, WiFi/edge lost), the
@@ -96,8 +94,8 @@ private:
     static void logSample(const char* label, const ImuSample& sample, uint8_t address);
     static float maxGyroMagnitude(const MotionState& motionState);
     void pulseBuzzer(size_t pulseCount);
-    void pulseVibrationMotor(size_t pulseCount);
-    void logAllSamplesIfDue(const MotionState& motionState, const MotionPayload& motionPayload);
+    void logAllSamplesIfDue(const MotionState& motionState, const MotionPayload& motionPayload,
+                            float targetAngleDegrees, float proximalSignalDegrees);
     void publishToEdgeIfDue(float targetAngleDegrees, float proximalSignalDegrees);
     void publishBleTelemetry(const MotionState& motionState);
     void advanceOrientationFilters();

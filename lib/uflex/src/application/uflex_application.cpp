@@ -53,7 +53,6 @@ void UflexApplication::begin() {
     Serial.printf("uFlex motion probe (%s target)\n", UFLEX_BUILD_TARGET_NAME);
     runtime.begin();
     pulseBuzzer(2);
-    pulseVibrationMotor(2);
     Serial.println();
 }
 
@@ -91,7 +90,7 @@ void UflexApplication::loop() {
 
         publishBleTelemetry(motionState);
         publishToEdgeIfDue(targetAngle, proximalSignal);
-        logAllSamplesIfDue(motionState, motionPayload);
+        logAllSamplesIfDue(motionState, motionPayload, targetAngle, proximalSignal);
     }
 }
 
@@ -144,23 +143,9 @@ void UflexApplication::pulseBuzzer(size_t pulseCount) {
     }
 }
 
-void UflexApplication::pulseVibrationMotor(size_t pulseCount) {
-    for (size_t pulseIndex = 0; pulseIndex < pulseCount; ++pulseIndex) {
-        runtime.getDevice().handle(VibrationMotor::TURN_ON_COMMAND);
-        runtime.applyOutputs();
-        delay(VIBRATION_MOTOR_PULSE_MS);
-
-        runtime.getDevice().handle(VibrationMotor::TURN_OFF_COMMAND);
-        runtime.applyOutputs();
-
-        if (pulseIndex + 1 < pulseCount) {
-            delay(VIBRATION_MOTOR_PULSE_GAP_MS);
-        }
-    }
-}
-
 void UflexApplication::logAllSamplesIfDue(const MotionState& motionState,
-                                          const MotionPayload& motionPayload) {
+                                          const MotionPayload& motionPayload,
+                                          float targetAngleDegrees, float proximalSignalDegrees) {
     const unsigned long now = millis();
     if (now - lastSerialLogAt < SERIAL_LOG_INTERVAL_MS) {
         return;
@@ -183,6 +168,12 @@ void UflexApplication::logAllSamplesIfDue(const MotionState& motionState,
     Serial.printf("upper-lower: pitch=%.2f roll=%.2f\n",
                   motionPayload.upperLowerAngle.pitchDegrees,
                   motionPayload.upperLowerAngle.rollDegrees);
+
+    // The enriched sample actually sent to the edge: the active-joint angle and the proximal-segment
+    // (bicep, upper) yaw. proximal_signal should be steady at rest (mag-anchored on ch1) and swing
+    // when the upper arm rotates -> feeds the edge's compensation detector.
+    Serial.printf("edge sample: target_angle=%.2f proximal_signal(bicep yaw)=%.2f\n",
+                  targetAngleDegrees, proximalSignalDegrees);
 
     if (MotionPayloadSerializer::toJson(motionPayload, payloadBuffer, sizeof(payloadBuffer)) >=
         0) {
@@ -320,12 +311,8 @@ void UflexApplication::updateSafety(float targetAngleDegrees, bool contextIsAliv
 }
 
 void UflexApplication::applySafetyOutputs(bool on) {
+    // Local safety = buzzer only. The vibration motor was dropped (interfered with the magnetometer
+    // and added motion noise); GPIO32 is now unused.
     UflexDevice& device = runtime.getDevice();
-    if (on) {
-        device.handle(VibrationMotor::TURN_ON_COMMAND);
-        device.handle(ActiveBuzzer::TURN_ON_COMMAND);
-    } else {
-        device.handle(VibrationMotor::TURN_OFF_COMMAND);
-        device.handle(ActiveBuzzer::TURN_OFF_COMMAND);
-    }
+    device.handle(on ? ActiveBuzzer::TURN_ON_COMMAND : ActiveBuzzer::TURN_OFF_COMMAND);
 }
