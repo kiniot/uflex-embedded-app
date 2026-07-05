@@ -564,3 +564,47 @@ This phase is about achieving a prototype that is:
 
 It is not yet about achieving the final wearable form.
 
+---
+
+## 19. Bring-up results (2026-07-02)
+
+The physical prototype was built and validated on real hardware with a temporary
+`src/main.cpp` test (the real firmware is restored afterward — see "Pending").
+
+### What was built
+- ESP32 (on female headers) + **TCA9548A mux** + 3× MPU9250 satellites
+  (**ch0 = forearm, ch1 = biceps, ch2 = hand**; each `AD0→GND`, all at `0x68`,
+  isolated per channel) + RGB LED + active buzzer.
+- Power (separate board): LiPo 1000 mAh → TP4056-PROT → slider switch → MT3608
+  (set to **~4.92 V**) → ESP32 `VIN`. Satellites wired to the main board via
+  **borneras** (AWG24 silicone, 4 wires: `3V3/GND/SDA/SCL`; `AD0→GND` done locally
+  at each satellite).
+
+### Test results — PASS
+- **Mux:** responds at `0x70`.
+- **IMUs:** all 3 MPU9250 respond `WHO_AM_I = 0x71` per channel (stable across the loop).
+- **Actuators:** RGB (R/G/B) + buzzer fire.
+- **Magnetometers (bypass-per-channel):** **2 of 3 read stable at rest and respond to
+  rotation** (forearm + biceps). The **3rd IMU has a dead AK8963** (`Error 263` / I²C
+  timeout; the fault **follows the IMU** — confirmed by swapping it between channels — so
+  it is the module, not the wiring). It sits on the **hand (ch2)**, which is not part of
+  the elbow pair (elbow = biceps + forearm, both mags good) → non-critical for elbow.
+- **Old blocker resolved:** the previous "AK8963 DRDY never sets / mag = 0 / Error 263"
+  was the **AK8963 I²C address collision** (`0x0C` shared). The **mux resolves it** — the
+  mags read once isolated per channel. (One IMU additionally has a genuinely faulty AK8963.)
+
+### Changes vs the original plan
+- **Vibration motor DROPPED** (interferes with the magnetometer + adds motion noise to the
+  readings) → **`GPIO32` is now unused** and **local safety = buzzer only**.
+- Power on a **separate board** (noise isolation + comfort), not all-in-one.
+
+### Pending (not done yet)
+- **Firmware mux delta:** the real firmware still uses the **two-bus** topology and does not
+  match this hardware. It needs: single I²C bus (`GPIO21/22`) + **TCA9548A channel-select**
+  (`write 1<<n to 0x70`) before each IMU + **bypass-per-channel** for the AK8963. Restore/keep
+  the thin real `main.cpp`.
+- **`GPIO32` (motor):** remove/ignore in firmware; safety alert = buzzer.
+- **Dead-mag IMU:** keep on the hand (elbow-only) or replace with a 4th MPU9250 for wrist.
+- **E2E compensation** (edge `CompensationDetector` on real proximal/biceps yaw) — pending the
+  firmware delta. Also: battery operation and mechanical mounting (bands/Velcro/EVA).
+

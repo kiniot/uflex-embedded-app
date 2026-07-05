@@ -564,3 +564,46 @@ Esta fase se trata de lograr un prototipo:
 
 No de lograr todavía un wearable final.
 
+---
+
+## 19. Resultados de bring-up (2026-07-02)
+
+El prototipo físico se armó y validó en hardware real con un `src/main.cpp` de test
+temporal (el firmware real se restaura después — ver "Pendiente").
+
+### Qué se armó
+- ESP32 (sobre headers hembra) + **multiplexor TCA9548A** + 3× satélites MPU9250
+  (**ch0 = antebrazo, ch1 = bíceps, ch2 = mano**; cada uno `AD0→GND`, todos en `0x68`,
+  aislados por canal) + LED RGB + buzzer activo.
+- Alimentación (board aparte): LiPo 1000 mAh → TP4056-PROT → slider switch → MT3608
+  (ajustado a **~4.92 V**) → `VIN` del ESP32. Satélites al board principal por **borneras**
+  (silicona AWG24, 4 hilos: `3V3/GND/SDA/SCL`; `AD0→GND` local en cada satélite).
+
+### Resultados del test — PASA
+- **Mux:** responde en `0x70`.
+- **IMUs:** las 3 MPU9250 responden `WHO_AM_I = 0x71` por canal (estable en el bucle).
+- **Actuadores:** RGB (R/V/A) + buzzer disparan.
+- **Magnetómetros (bypass-por-canal):** **2 de 3 leen estables en reposo y responden al
+  giro** (antebrazo + bíceps). El **3er IMU tiene el AK8963 muerto** (`Error 263` / timeout
+  I²C; el fallo **sigue al IMU** — confirmado por swap entre canales — así que es el módulo,
+  no el cableado). Está en la **mano (ch2)**, que no es del par del codo (codo = bíceps +
+  antebrazo, ambos con mag bueno) → no crítico para codo.
+- **Blocker viejo resuelto:** el "AK8963 DRDY nunca listo / mag = 0 / Error 263" era la
+  **colisión de dirección I²C del AK8963** (`0x0C` compartido). El **mux lo resuelve** — los
+  mags leen aislados por canal. (Un IMU además tiene el AK8963 genuinamente defectuoso.)
+
+### Cambios respecto al plan original
+- **Motor vibrador DESCARTADO** (interfiere con el magnetómetro + mete ruido de movimiento en
+  las lecturas) → **`GPIO32` queda sin uso** y **seguridad local = solo buzzer**.
+- Alimentación en **board aparte** (aislar ruido + comodidad), no todo-en-uno.
+
+### Pendiente (aún no hecho)
+- **Delta de firmware del mux:** el firmware real sigue en topología de **dos buses** y no
+  coincide con este hardware. Necesita: un solo bus I²C (`GPIO21/22`) + **select de canal del
+  TCA9548A** (`escribir 1<<n a 0x70`) antes de cada IMU + **bypass-por-canal** para el AK8963.
+  Restaurar/mantener el `main.cpp` real delgado.
+- **`GPIO32` (motor):** quitar/ignorar en firmware; alerta de seguridad = buzzer.
+- **IMU con mag muerto:** dejarlo en la mano (solo codo) o reemplazar por un 4º MPU9250 para muñeca.
+- **Compensación E2E** (el `CompensationDetector` del edge sobre el yaw proximal/bíceps real) —
+  pendiente del delta de firmware. Además: operación con batería y montaje mecánico (bandas/velcro/EVA).
+
