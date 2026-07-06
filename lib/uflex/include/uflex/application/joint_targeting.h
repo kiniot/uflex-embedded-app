@@ -22,18 +22,18 @@
  */
 
 /**
- * @brief Returns the active joint's relative rotation: Elbow -> upper-middle,
- * Wrist -> middle-lower. None defaults to upper-middle.
+ * @brief Returns the active pair's relative rotation. Pronation/supination ->
+ * upper-middle (forearm vs still upper arm, since the hand rotates with the
+ * forearm); otherwise by joint: Wrist -> middle-lower, Elbow/None -> upper-middle.
  */
-Quaternion activeJointRotation(const MotionState& state, ActiveJoint joint);
+Quaternion activeJointRotation(const MotionState& state, ActiveJoint joint, ActiveMovement movement);
 
 /**
- * @brief Returns the active joint's gravity-anchored relative (pitch, roll):
- * Elbow -> upper-middle, Wrist -> middle-lower. None defaults to upper-middle.
- * This is the accelerometer-derived tilt (yaw-immune) the flexion angle is built
- * from, mirroring the pair selection of activeJointRotation().
+ * @brief Returns the active pair's gravity-anchored relative (pitch, roll) — the
+ * accelerometer-derived tilt (yaw-immune) the flexion angle is built from. Same
+ * pair selection as activeJointRotation(): pron/sup -> upper-middle, else by joint.
  */
-RelativeAngle activeJointAngle(const MotionState& state, ActiveJoint joint);
+RelativeAngle activeJointAngle(const MotionState& state, ActiveJoint joint, ActiveMovement movement);
 
 /**
  * @brief Whether the flexion angle has crossed the active serie's safety ceiling.

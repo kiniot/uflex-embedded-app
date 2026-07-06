@@ -25,21 +25,33 @@ void testElbowSelectsUpperMiddle() {
     const Quaternion um{1.0f, 0.1f, 0.0f, 0.0f};
     const Quaternion ml{0.0f, 0.0f, 1.0f, 0.0f};
 
-    assertQuaternionEquals(um, activeJointRotation(stateWithRotations(um, ml), ActiveJoint::Elbow));
+    assertQuaternionEquals(um, activeJointRotation(stateWithRotations(um, ml), ActiveJoint::Elbow,
+                                                   ActiveMovement::Flexion));
 }
 
-void testWristSelectsMiddleLower() {
+void testWristFlexionSelectsMiddleLower() {
     const Quaternion um{1.0f, 0.1f, 0.0f, 0.0f};
     const Quaternion ml{0.0f, 0.0f, 1.0f, 0.0f};
 
-    assertQuaternionEquals(ml, activeJointRotation(stateWithRotations(um, ml), ActiveJoint::Wrist));
+    assertQuaternionEquals(ml, activeJointRotation(stateWithRotations(um, ml), ActiveJoint::Wrist,
+                                                   ActiveMovement::Flexion));
+}
+
+void testPronationSelectsUpperMiddleEvenForWrist() {
+    const Quaternion um{1.0f, 0.1f, 0.0f, 0.0f};
+    const Quaternion ml{0.0f, 0.0f, 1.0f, 0.0f};
+
+    // Pron/sup measures the forearm against the still upper arm -> upper-middle, not the hand pair.
+    assertQuaternionEquals(um, activeJointRotation(stateWithRotations(um, ml), ActiveJoint::Wrist,
+                                                   ActiveMovement::Pronation));
 }
 
 void testNoneDefaultsToUpperMiddle() {
     const Quaternion um{1.0f, 0.1f, 0.0f, 0.0f};
     const Quaternion ml{0.0f, 0.0f, 1.0f, 0.0f};
 
-    assertQuaternionEquals(um, activeJointRotation(stateWithRotations(um, ml), ActiveJoint::None));
+    assertQuaternionEquals(um, activeJointRotation(stateWithRotations(um, ml), ActiveJoint::None,
+                                                   ActiveMovement::None));
 }
 
 MotionState stateWithAngles(const RelativeAngle& upperMiddle, const RelativeAngle& middleLower) {
@@ -57,19 +69,30 @@ void assertAngleEquals(const RelativeAngle& expected, const RelativeAngle& actua
 void testElbowSelectsUpperMiddleAngle() {
     const RelativeAngle um{10.0f, 2.0f};
     const RelativeAngle ml{40.0f, 5.0f};
-    assertAngleEquals(um, activeJointAngle(stateWithAngles(um, ml), ActiveJoint::Elbow));
+    assertAngleEquals(um, activeJointAngle(stateWithAngles(um, ml), ActiveJoint::Elbow,
+                                           ActiveMovement::Extension));
 }
 
-void testWristSelectsMiddleLowerAngle() {
+void testWristFlexionSelectsMiddleLowerAngle() {
     const RelativeAngle um{10.0f, 2.0f};
     const RelativeAngle ml{40.0f, 5.0f};
-    assertAngleEquals(ml, activeJointAngle(stateWithAngles(um, ml), ActiveJoint::Wrist));
+    assertAngleEquals(ml, activeJointAngle(stateWithAngles(um, ml), ActiveJoint::Wrist,
+                                           ActiveMovement::Flexion));
+}
+
+void testSupinationSelectsUpperMiddleAngleEvenForWrist() {
+    const RelativeAngle um{10.0f, 2.0f};
+    const RelativeAngle ml{40.0f, 5.0f};
+    // Supination of a wrist-tagged serie is still measured against the upper arm (upper-middle).
+    assertAngleEquals(um, activeJointAngle(stateWithAngles(um, ml), ActiveJoint::Wrist,
+                                           ActiveMovement::Supination));
 }
 
 void testNoneDefaultsToUpperMiddleAngle() {
     const RelativeAngle um{10.0f, 2.0f};
     const RelativeAngle ml{40.0f, 5.0f};
-    assertAngleEquals(um, activeJointAngle(stateWithAngles(um, ml), ActiveJoint::None));
+    assertAngleEquals(um, activeJointAngle(stateWithAngles(um, ml), ActiveJoint::None,
+                                           ActiveMovement::None));
 }
 
 void testSafetyFalseWithoutContext() {
@@ -104,10 +127,12 @@ void testSafetyTrueAtOrAboveCeiling() {
 
 void runJointTargetingTests() {
     RUN_TEST(testElbowSelectsUpperMiddle);
-    RUN_TEST(testWristSelectsMiddleLower);
+    RUN_TEST(testWristFlexionSelectsMiddleLower);
+    RUN_TEST(testPronationSelectsUpperMiddleEvenForWrist);
     RUN_TEST(testNoneDefaultsToUpperMiddle);
     RUN_TEST(testElbowSelectsUpperMiddleAngle);
-    RUN_TEST(testWristSelectsMiddleLowerAngle);
+    RUN_TEST(testWristFlexionSelectsMiddleLowerAngle);
+    RUN_TEST(testSupinationSelectsUpperMiddleAngleEvenForWrist);
     RUN_TEST(testNoneDefaultsToUpperMiddleAngle);
     RUN_TEST(testSafetyFalseWithoutContext);
     RUN_TEST(testSafetyFalseWithoutMaxSafeAngle);

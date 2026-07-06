@@ -13,26 +13,28 @@
 
 #include "uflex/application/joint_targeting.h"
 
-Quaternion activeJointRotation(const MotionState& state, ActiveJoint joint) {
-    switch (joint) {
-        case ActiveJoint::Wrist:
-            return state.middleLowerRotation;
-        case ActiveJoint::Elbow:
-        case ActiveJoint::None:
-        default:
-            return state.upperMiddleRotation;
+namespace {
+
+// Whether the active pair is upper-middle (brazo-antebrazo) vs middle-lower (antebrazo-mano).
+// Pronation/supination is forearm axial rotation, so the hand rotates with the forearm and the
+// movement is invisible on middle-lower -> measure the forearm against the still upper arm
+// (upper-middle), regardless of joint. Otherwise the joint decides (Wrist -> middle-lower).
+bool usesUpperMiddlePair(ActiveJoint joint, ActiveMovement movement) {
+    if (movement == ActiveMovement::Pronation || movement == ActiveMovement::Supination) {
+        return true;
     }
+    return joint != ActiveJoint::Wrist;
 }
 
-RelativeAngle activeJointAngle(const MotionState& state, ActiveJoint joint) {
-    switch (joint) {
-        case ActiveJoint::Wrist:
-            return state.middleLowerAngle;
-        case ActiveJoint::Elbow:
-        case ActiveJoint::None:
-        default:
-            return state.upperMiddleAngle;
-    }
+} // namespace
+
+Quaternion activeJointRotation(const MotionState& state, ActiveJoint joint, ActiveMovement movement) {
+    return usesUpperMiddlePair(joint, movement) ? state.upperMiddleRotation
+                                                : state.middleLowerRotation;
+}
+
+RelativeAngle activeJointAngle(const MotionState& state, ActiveJoint joint, ActiveMovement movement) {
+    return usesUpperMiddlePair(joint, movement) ? state.upperMiddleAngle : state.middleLowerAngle;
 }
 
 bool exceedsSafeAngle(float targetAngleDegrees, const ActiveSerieContext& context) {

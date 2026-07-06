@@ -243,7 +243,8 @@ void UflexApplication::pollActiveContextIfDue(unsigned long now) {
 }
 
 float UflexApplication::computeTargetAngle(const MotionState& motionState) {
-    const RelativeAngle angle = activeJointAngle(motionState, activeContext.activeJoint);
+    const RelativeAngle angle =
+        activeJointAngle(motionState, activeContext.activeJoint, activeContext.activeMovement);
     return jointAngleCalculator.absoluteFlexionDegrees(angle);
 }
 
@@ -285,7 +286,8 @@ void UflexApplication::serviceCalibration(const MotionState& motionState, bool c
         return; // keep waiting for the arm to hold still
     }
 
-    const RelativeAngle zeroPose = activeJointAngle(motionState, activeContext.activeJoint);
+    const RelativeAngle zeroPose =
+        activeJointAngle(motionState, activeContext.activeJoint, activeContext.activeMovement);
     jointAngleCalculator.calibrate(zeroPose);
     strncpy(lastCalibratedSerieId, pendingCalibrationSerieId, sizeof(lastCalibratedSerieId) - 1);
     lastCalibratedSerieId[sizeof(lastCalibratedSerieId) - 1] = '\0';
