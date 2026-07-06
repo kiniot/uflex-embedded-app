@@ -44,6 +44,14 @@ void testFlexionIsDistanceInPitchRollSpace() {
                              calculator.absoluteFlexionDegrees(angle(13.0f, 14.0f)));
 }
 
+void testFlexionIsCappedAt180() {
+    JointAngleCalculator calculator;
+    calculator.calibrate(angle(0.0f, 0.0f));
+
+    // A joint cannot exceed 180 deg; a huge (out-of-range) input clamps to 180.
+    TEST_ASSERT_FLOAT_WITHIN(kTolerance, 180.0f, calculator.absoluteFlexionDegrees(angle(200.0f)));
+}
+
 void testReCalibrationMovesTheZero() {
     JointAngleCalculator calculator;
     calculator.calibrate(angle(20.0f));
@@ -71,6 +79,7 @@ void runJointAngleCalculatorTests() {
     RUN_TEST(testCalibratedZeroPoseReadsZero);
     RUN_TEST(testAngleMeasuredFromCalibratedZero);
     RUN_TEST(testFlexionIsDistanceInPitchRollSpace);
+    RUN_TEST(testFlexionIsCappedAt180);
     RUN_TEST(testReCalibrationMovesTheZero);
     RUN_TEST(testResetReturnsToUncalibrated);
 }

@@ -26,7 +26,10 @@ float JointAngleCalculator::absoluteFlexionDegrees(const RelativeAngle& jointAng
     // full quaternion magnitude), and it captures the tilt regardless of which axis the hinge is on.
     const float deltaPitch = jointAngle.pitchDegrees - zeroReference.pitchDegrees;
     const float deltaRoll = jointAngle.rollDegrees - zeroReference.rollDegrees;
-    return sqrtf(deltaPitch * deltaPitch + deltaRoll * deltaRoll);
+    const float flexion = sqrtf(deltaPitch * deltaPitch + deltaRoll * deltaRoll);
+    // Cap at 180: a joint cannot flex past it, and the L2 distance can overshoot on large combined
+    // pitch+roll (non-hinge motion). Keeps peakAngle/achievedRom within the backend's [0, 180] range.
+    return fminf(flexion, 180.0f);
 }
 
 bool JointAngleCalculator::isCalibrated() const {
