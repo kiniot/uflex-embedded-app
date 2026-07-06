@@ -15,8 +15,9 @@
 
 BleMotionTelemetry BleMotionTelemetryMapper::map(const MotionState& motionState,
                                                  RgbLed::Color ledColor, bool buzzerActive,
-                                                 bool vibrationActive,
-                                                 uint16_t sequenceNumber) {
+                                                 bool vibrationActive, uint16_t sequenceNumber,
+                                                 float jointFlexionDegrees, bool isCalibrated,
+                                                 uint8_t activeJoint) {
     return BleMotionTelemetry{
         motionState.upperMiddleRotation,
         motionState.middleLowerRotation,
@@ -25,5 +26,8 @@ BleMotionTelemetry BleMotionTelemetryMapper::map(const MotionState& motionState,
         buzzerActive,
         vibrationActive,
         sequenceNumber,
+        jointFlexionDegrees,
+        isCalibrated,
+        activeJoint,
     };
 }

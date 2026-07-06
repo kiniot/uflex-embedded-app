@@ -42,6 +42,36 @@ void testNoneDefaultsToUpperMiddle() {
     assertQuaternionEquals(um, activeJointRotation(stateWithRotations(um, ml), ActiveJoint::None));
 }
 
+MotionState stateWithAngles(const RelativeAngle& upperMiddle, const RelativeAngle& middleLower) {
+    MotionState state{};
+    state.upperMiddleAngle = upperMiddle;
+    state.middleLowerAngle = middleLower;
+    return state;
+}
+
+void assertAngleEquals(const RelativeAngle& expected, const RelativeAngle& actual) {
+    TEST_ASSERT_FLOAT_WITHIN(kTolerance, expected.pitchDegrees, actual.pitchDegrees);
+    TEST_ASSERT_FLOAT_WITHIN(kTolerance, expected.rollDegrees, actual.rollDegrees);
+}
+
+void testElbowSelectsUpperMiddleAngle() {
+    const RelativeAngle um{10.0f, 2.0f};
+    const RelativeAngle ml{40.0f, 5.0f};
+    assertAngleEquals(um, activeJointAngle(stateWithAngles(um, ml), ActiveJoint::Elbow));
+}
+
+void testWristSelectsMiddleLowerAngle() {
+    const RelativeAngle um{10.0f, 2.0f};
+    const RelativeAngle ml{40.0f, 5.0f};
+    assertAngleEquals(ml, activeJointAngle(stateWithAngles(um, ml), ActiveJoint::Wrist));
+}
+
+void testNoneDefaultsToUpperMiddleAngle() {
+    const RelativeAngle um{10.0f, 2.0f};
+    const RelativeAngle ml{40.0f, 5.0f};
+    assertAngleEquals(um, activeJointAngle(stateWithAngles(um, ml), ActiveJoint::None));
+}
+
 void testSafetyFalseWithoutContext() {
     ActiveSerieContext context; // defaults: no context
     TEST_ASSERT_FALSE(exceedsSafeAngle(200.0f, context));
@@ -76,6 +106,9 @@ void runJointTargetingTests() {
     RUN_TEST(testElbowSelectsUpperMiddle);
     RUN_TEST(testWristSelectsMiddleLower);
     RUN_TEST(testNoneDefaultsToUpperMiddle);
+    RUN_TEST(testElbowSelectsUpperMiddleAngle);
+    RUN_TEST(testWristSelectsMiddleLowerAngle);
+    RUN_TEST(testNoneDefaultsToUpperMiddleAngle);
     RUN_TEST(testSafetyFalseWithoutContext);
     RUN_TEST(testSafetyFalseWithoutMaxSafeAngle);
     RUN_TEST(testSafetyFalseBelowCeiling);

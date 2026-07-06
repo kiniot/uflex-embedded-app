@@ -32,7 +32,8 @@ public:
      */
     static BleMotionTelemetry map(const MotionState& motionState, RgbLed::Color ledColor,
                                   bool buzzerActive, bool vibrationActive,
-                                  uint16_t sequenceNumber);
+                                  uint16_t sequenceNumber, float jointFlexionDegrees,
+                                  bool isCalibrated, uint8_t activeJoint);
 };
 
 #endif // UFLEX_INFRASTRUCTURE_TRANSPORT_BLE_MOTION_TELEMETRY_MAPPER_H

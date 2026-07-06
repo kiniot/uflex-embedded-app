@@ -24,6 +24,17 @@ Quaternion activeJointRotation(const MotionState& state, ActiveJoint joint) {
     }
 }
 
+RelativeAngle activeJointAngle(const MotionState& state, ActiveJoint joint) {
+    switch (joint) {
+        case ActiveJoint::Wrist:
+            return state.middleLowerAngle;
+        case ActiveJoint::Elbow:
+        case ActiveJoint::None:
+        default:
+            return state.upperMiddleAngle;
+    }
+}
+
 bool exceedsSafeAngle(float targetAngleDegrees, const ActiveSerieContext& context) {
     return context.hasContext && context.hasMaxSafeAngle &&
            targetAngleDegrees >= context.maxSafeAngle;

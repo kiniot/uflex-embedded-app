@@ -57,6 +57,9 @@ int BleMotionTelemetrySerializer::toBytes(const BleMotionTelemetry& payload, uin
     offset = writeUint8(buffer, offset, payload.buzzerActive ? 1 : 0);
     offset = writeUint8(buffer, offset, payload.vibrationActive ? 1 : 0);
     offset = writeUint16LittleEndian(buffer, offset, payload.sequenceNumber);
+    offset = writeFloat(buffer, offset, payload.jointFlexionDegrees);
+    offset = writeUint8(buffer, offset, payload.isCalibrated ? 1 : 0);
+    offset = writeUint8(buffer, offset, payload.activeJoint);
 
     return static_cast<int>(offset);
 }

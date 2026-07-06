@@ -97,7 +97,8 @@ private:
     void logAllSamplesIfDue(const MotionState& motionState, const MotionPayload& motionPayload,
                             float targetAngleDegrees, float proximalSignalDegrees);
     void publishToEdgeIfDue(float targetAngleDegrees, float proximalSignalDegrees);
-    void publishBleTelemetry(const MotionState& motionState);
+    void publishBleTelemetry(const MotionState& motionState, float jointFlexionDegrees,
+                             bool isCalibrated, uint8_t activeJoint);
     void advanceOrientationFilters();
     void pollActiveContextIfDue(unsigned long now);
     bool contextAlive(unsigned long now) const;

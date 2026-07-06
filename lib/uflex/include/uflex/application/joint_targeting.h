@@ -28,6 +28,14 @@
 Quaternion activeJointRotation(const MotionState& state, ActiveJoint joint);
 
 /**
+ * @brief Returns the active joint's gravity-anchored relative (pitch, roll):
+ * Elbow -> upper-middle, Wrist -> middle-lower. None defaults to upper-middle.
+ * This is the accelerometer-derived tilt (yaw-immune) the flexion angle is built
+ * from, mirroring the pair selection of activeJointRotation().
+ */
+RelativeAngle activeJointAngle(const MotionState& state, ActiveJoint joint);
+
+/**
  * @brief Whether the flexion angle has crossed the active serie's safety ceiling.
  */
 bool exceedsSafeAngle(float targetAngleDegrees, const ActiveSerieContext& context);

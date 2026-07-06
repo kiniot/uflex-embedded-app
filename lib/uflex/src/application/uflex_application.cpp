@@ -88,7 +88,8 @@ void UflexApplication::loop() {
         updateSafety(targetAngle, ctxAlive);
         runtime.applyOutputs();
 
-        publishBleTelemetry(motionState);
+        publishBleTelemetry(motionState, targetAngle, jointAngleCalculator.isCalibrated(),
+                            static_cast<uint8_t>(activeContext.activeJoint));
         publishToEdgeIfDue(targetAngle, proximalSignal);
         logAllSamplesIfDue(motionState, motionPayload, targetAngle, proximalSignal);
     }
@@ -109,11 +110,13 @@ void UflexApplication::advanceOrientationFilters() {
     runtime.getDevice().updateOrientations(deltaTimeSeconds);
 }
 
-void UflexApplication::publishBleTelemetry(const MotionState& motionState) {
+void UflexApplication::publishBleTelemetry(const MotionState& motionState, float jointFlexionDegrees,
+                                           bool isCalibrated, uint8_t activeJoint) {
     UflexDevice& device = runtime.getDevice();
     const BleMotionTelemetry telemetry = BleMotionTelemetryMapper::map(
         motionState, device.getStatusLed().getColor(), device.getStatusBuzzer().isEnabled(),
-        device.getVibrationMotor().isEnabled(), bleSequenceNumber);
+        device.getVibrationMotor().isEnabled(), bleSequenceNumber, jointFlexionDegrees, isCalibrated,
+        activeJoint);
     ++bleSequenceNumber;
 
     BleTransport& bleTransport = runtime.getBleTransport();
@@ -240,8 +243,8 @@ void UflexApplication::pollActiveContextIfDue(unsigned long now) {
 }
 
 float UflexApplication::computeTargetAngle(const MotionState& motionState) {
-    const Quaternion rotation = activeJointRotation(motionState, activeContext.activeJoint);
-    return jointAngleCalculator.absoluteFlexionDegrees(rotation);
+    const RelativeAngle angle = activeJointAngle(motionState, activeContext.activeJoint);
+    return jointAngleCalculator.absoluteFlexionDegrees(angle);
 }
 
 bool UflexApplication::contextAlive(unsigned long now) const {
@@ -282,7 +285,7 @@ void UflexApplication::serviceCalibration(const MotionState& motionState, bool c
         return; // keep waiting for the arm to hold still
     }
 
-    const Quaternion zeroPose = activeJointRotation(motionState, activeContext.activeJoint);
+    const RelativeAngle zeroPose = activeJointAngle(motionState, activeContext.activeJoint);
     jointAngleCalculator.calibrate(zeroPose);
     strncpy(lastCalibratedSerieId, pendingCalibrationSerieId, sizeof(lastCalibratedSerieId) - 1);
     lastCalibratedSerieId[sizeof(lastCalibratedSerieId) - 1] = '\0';
