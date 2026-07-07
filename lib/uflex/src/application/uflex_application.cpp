@@ -40,7 +40,9 @@ UflexApplication::UflexApplication(UflexRuntime& runtime)
       lastSerialLogAt(0),
       lastDownChannelPollAt(0),
       lastContextOkAt(0),
+      bootIndicatorUntil(0),
       hasOrientationBaseline(false),
+      runtimeStarted(false),
       bleSequenceNumber(0),
       lastCalibratedSerieId{},
       pendingCalibrationSerieId{},
@@ -51,7 +53,16 @@ UflexApplication::UflexApplication(UflexRuntime& runtime)
 
 void UflexApplication::begin() {
     Serial.printf("uFlex motion probe (%s target)\n", UFLEX_BUILD_TARGET_NAME);
-    runtime.begin();
+    runtime.getDevice().getStatusLed().setColor(RgbLed::Color::yellow);
+    runtimeStarted = runtime.begin();
+    bootIndicatorUntil = millis() + BOOT_LED_MS;
+    if (!runtimeStarted) {
+        runtime.getDevice().getStatusLed().setColor(RgbLed::Color::magenta);
+        runtime.applyOutputs();
+        Serial.println("runtime: begin failed -> LED magenta");
+        Serial.println();
+        return;
+    }
     pulseBuzzer(2);
     Serial.println();
 }
@@ -65,34 +76,39 @@ void UflexApplication::loop() {
 
     lastReadAt = now;
 
-    if (runtime.update()) {
-        advanceOrientationFilters();
-
-        const MotionState motionState = runtime.getDevice().getMotionState();
-        const MotionPayload motionPayload = MotionPayloadMapper::map(motionState);
-
-        pollActiveContextIfDue(now);
-
-        // A context is only "alive" if a poll succeeded recently (TTL). On loss this
-        // disarms safety and drops the stale zero; while a new serie waits to settle,
-        // it captures the zero (serviceCalibration) before the angle is computed.
-        const bool ctxAlive = contextAlive(now);
-        serviceCalibration(motionState, ctxAlive, now);
-
-        const float targetAngle = computeTargetAngle(motionState);
-        const float proximalSignal = yawDegrees(runtime.getDevice().getUpperOrientation());
-
-        // Local safety reaction runs every cycle and reaches the pins immediately,
-        // independent of the network (it uses the cached active context). Armed only
-        // with a fresh context + valid zero; latched with hysteresis.
-        updateSafety(targetAngle, ctxAlive);
+    if (!runtime.update()) {
+        updateStatusLed(contextAlive(now), now);
         runtime.applyOutputs();
-
-        publishBleTelemetry(motionState, targetAngle, jointAngleCalculator.isCalibrated(),
-                            static_cast<uint8_t>(activeContext.activeJoint));
-        publishToEdgeIfDue(targetAngle, proximalSignal);
-        logAllSamplesIfDue(motionState, motionPayload, targetAngle, proximalSignal);
+        return;
     }
+
+    advanceOrientationFilters();
+
+    const MotionState motionState = runtime.getDevice().getMotionState();
+    const MotionPayload motionPayload = MotionPayloadMapper::map(motionState);
+
+    pollActiveContextIfDue(now);
+
+    // A context is only "alive" if a poll succeeded recently (TTL). On loss this
+    // disarms safety and drops the stale zero; while a new serie waits to settle,
+    // it captures the zero (serviceCalibration) before the angle is computed.
+    const bool ctxAlive = contextAlive(now);
+    serviceCalibration(motionState, ctxAlive, now);
+
+    const float targetAngle = computeTargetAngle(motionState);
+    const float proximalSignal = yawDegrees(runtime.getDevice().getUpperOrientation());
+
+    // Local safety reaction runs every cycle and reaches the pins immediately,
+    // independent of the network (it uses the cached active context). Armed only
+    // with a fresh context + valid zero; latched with hysteresis.
+    updateSafety(targetAngle, ctxAlive);
+    updateStatusLed(ctxAlive, now);
+    runtime.applyOutputs();
+
+    publishBleTelemetry(motionState, targetAngle, jointAngleCalculator.isCalibrated(),
+                        static_cast<uint8_t>(activeContext.activeJoint));
+    publishToEdgeIfDue(targetAngle, proximalSignal);
+    logAllSamplesIfDue(motionState, motionPayload, targetAngle, proximalSignal);
 }
 
 void UflexApplication::advanceOrientationFilters() {
@@ -320,4 +336,46 @@ void UflexApplication::applySafetyOutputs(bool on) {
     // and added motion noise); GPIO32 is now unused.
     UflexDevice& device = runtime.getDevice();
     device.handle(on ? ActiveBuzzer::TURN_ON_COMMAND : ActiveBuzzer::TURN_OFF_COMMAND);
+}
+
+void UflexApplication::updateStatusLed(bool contextIsAlive, unsigned long now) {
+    RgbLed& led = runtime.getDevice().getStatusLed();
+
+    if (!runtimeStarted) {
+        led.setColor(RgbLed::Color::magenta);
+        return;
+    }
+
+    if (now < bootIndicatorUntil) {
+        led.setColor(RgbLed::Color::yellow);
+        return;
+    }
+
+    if (safetyMonitor.isTriggered()) {
+        applyBlinkingLed(RgbLed::Color::red, now, FAST_BLINK_MS);
+        return;
+    }
+
+    if (!runtime.getBleTransport().isReady()) {
+        applyBlinkingLed(RgbLed::Color::blue, now, SLOW_BLINK_MS);
+        return;
+    }
+
+    if (!contextIsAlive) {
+        applyBlinkingLed(RgbLed::Color::yellow, now, SLOW_BLINK_MS);
+        return;
+    }
+
+    if (calibrationPending || !jointAngleCalculator.isCalibrated()) {
+        applyBlinkingLed(RgbLed::Color::cyan, now, SLOW_BLINK_MS);
+        return;
+    }
+
+    led.setColor(RgbLed::Color::green);
+}
+
+void UflexApplication::applyBlinkingLed(RgbLed::Color color, unsigned long now,
+                                        unsigned long intervalMs) {
+    const bool on = ((now / intervalMs) % 2) == 0;
+    runtime.getDevice().getStatusLed().setColor(on ? color : RgbLed::Color::off);
 }

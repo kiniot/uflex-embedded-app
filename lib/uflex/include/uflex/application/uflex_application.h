@@ -52,6 +52,9 @@ private:
     static constexpr unsigned long SERIAL_LOG_INTERVAL_MS = 1000;
     static constexpr unsigned long BUZZER_PULSE_MS = 100;
     static constexpr unsigned long BUZZER_PULSE_GAP_MS = 100;
+    static constexpr unsigned long BOOT_LED_MS = 1500;
+    static constexpr unsigned long SLOW_BLINK_MS = 600;
+    static constexpr unsigned long FAST_BLINK_MS = 160;
     static constexpr size_t MOTION_PAYLOAD_BUFFER_SIZE = 256;
     // Safety stays armed only while the active context is fresh. If no down-channel
     // poll has succeeded within this window (session ended, WiFi/edge lost), the
@@ -79,7 +82,9 @@ private:
     unsigned long lastSerialLogAt;
     unsigned long lastDownChannelPollAt;
     unsigned long lastContextOkAt;
+    unsigned long bootIndicatorUntil;
     bool hasOrientationBaseline;
+    bool runtimeStarted;
     uint16_t bleSequenceNumber;
     ActiveSerieContext activeContext;
     JointAngleCalculator jointAngleCalculator;
@@ -106,6 +111,8 @@ private:
     float computeTargetAngle(const MotionState& motionState);
     void updateSafety(float targetAngleDegrees, bool contextIsAlive);
     void applySafetyOutputs(bool on);
+    void updateStatusLed(bool contextIsAlive, unsigned long now);
+    void applyBlinkingLed(RgbLed::Color color, unsigned long now, unsigned long intervalMs);
 };
 
 #endif // UFLEX_APPLICATION_UFLEX_APPLICATION_H

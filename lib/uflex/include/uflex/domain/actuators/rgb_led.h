@@ -47,13 +47,13 @@ public:
 
     void handle(Command command) override;
 
+    void setColor(Color nextColor);
     Color getColor() const;
     State getState() const;
 
 private:
     Color color;
 
-    void setColor(Color nextColor);
     void advanceColor();
 };
 
