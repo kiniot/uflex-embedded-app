@@ -29,9 +29,17 @@ public:
     void apply(const RgbLed& led) const;
 
 private:
+    static constexpr uint8_t RED_CHANNEL = 0;
+    static constexpr uint8_t GREEN_CHANNEL = 1;
+    static constexpr uint8_t BLUE_CHANNEL = 2;
+    static constexpr uint32_t PWM_FREQUENCY_HZ = 5000;
+    static constexpr uint8_t PWM_RESOLUTION_BITS = 8;
+
     uint8_t redPin;
     uint8_t greenPin;
     uint8_t bluePin;
+
+    void writeChannel(uint8_t channel, bool on, uint8_t brightness) const;
 };
 
 #endif // UFLEX_INFRASTRUCTURE_ADAPTERS_COMMON_GPIO_RGB_LED_H

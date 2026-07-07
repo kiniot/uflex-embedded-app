@@ -357,12 +357,12 @@ void UflexApplication::updateStatusLed(bool contextIsAlive, unsigned long now) {
     }
 
     if (!runtime.getBleTransport().isReady()) {
-        applyBlinkingLed(RgbLed::Color::blue, now, SLOW_BLINK_MS);
+        applyBreathingLed(RgbLed::Color::blue, now, BREATHING_LED_MS);
         return;
     }
 
     if (!contextIsAlive) {
-        applyBlinkingLed(RgbLed::Color::yellow, now, SLOW_BLINK_MS);
+        applyBreathingLed(RgbLed::Color::yellow, now, BREATHING_LED_MS);
         return;
     }
 
@@ -378,4 +378,26 @@ void UflexApplication::applyBlinkingLed(RgbLed::Color color, unsigned long now,
                                         unsigned long intervalMs) {
     const bool on = ((now / intervalMs) % 2) == 0;
     runtime.getDevice().getStatusLed().setColor(on ? color : RgbLed::Color::off);
+}
+
+void UflexApplication::applyBreathingLed(RgbLed::Color color, unsigned long now,
+                                         unsigned long periodMs) {
+    RgbLed& led = runtime.getDevice().getStatusLed();
+    led.setColor(color);
+    led.setBrightness(breathingBrightness(now, periodMs));
+}
+
+uint8_t UflexApplication::breathingBrightness(unsigned long now, unsigned long periodMs) {
+    if (periodMs == 0) {
+        return 255;
+    }
+
+    const unsigned long phase = now % periodMs;
+    const unsigned long halfPeriod = periodMs / 2;
+    if (halfPeriod == 0) {
+        return 255;
+    }
+
+    const unsigned long ramp = phase < halfPeriod ? phase : periodMs - phase;
+    return static_cast<uint8_t>((ramp * 255UL) / halfPeriod);
 }

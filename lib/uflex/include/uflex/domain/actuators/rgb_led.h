@@ -5,6 +5,8 @@
 #ifndef UFLEX_DOMAIN_ACTUATORS_RGB_LED_H
 #define UFLEX_DOMAIN_ACTUATORS_RGB_LED_H
 
+#include <stdint.h>
+
 #include <Actuator.h>
 
 /**
@@ -35,6 +37,7 @@ public:
         bool redOn;
         bool greenOn;
         bool blueOn;
+        uint8_t brightness;
     };
 
     static constexpr int ADVANCE_COLOR_COMMAND_ID = 100;
@@ -48,11 +51,13 @@ public:
     void handle(Command command) override;
 
     void setColor(Color nextColor);
+    void setBrightness(uint8_t nextBrightness);
     Color getColor() const;
     State getState() const;
 
 private:
     Color color;
+    uint8_t brightness;
 
     void advanceColor();
 };

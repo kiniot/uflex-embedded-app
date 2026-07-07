@@ -55,6 +55,7 @@ private:
     static constexpr unsigned long BOOT_LED_MS = 1500;
     static constexpr unsigned long SLOW_BLINK_MS = 600;
     static constexpr unsigned long FAST_BLINK_MS = 160;
+    static constexpr unsigned long BREATHING_LED_MS = 2200;
     static constexpr size_t MOTION_PAYLOAD_BUFFER_SIZE = 256;
     // Safety stays armed only while the active context is fresh. If no down-channel
     // poll has succeeded within this window (session ended, WiFi/edge lost), the
@@ -113,6 +114,8 @@ private:
     void applySafetyOutputs(bool on);
     void updateStatusLed(bool contextIsAlive, unsigned long now);
     void applyBlinkingLed(RgbLed::Color color, unsigned long now, unsigned long intervalMs);
+    void applyBreathingLed(RgbLed::Color color, unsigned long now, unsigned long periodMs);
+    static uint8_t breathingBrightness(unsigned long now, unsigned long periodMs);
 };
 
 #endif // UFLEX_APPLICATION_UFLEX_APPLICATION_H

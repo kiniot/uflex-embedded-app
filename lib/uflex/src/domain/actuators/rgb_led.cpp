@@ -22,7 +22,8 @@ const Command RgbLed::TURN_OFF_COMMAND(TURN_OFF_COMMAND_ID);
 
 RgbLed::RgbLed(CommandHandler* commandHandler)
     : Actuator(-1, commandHandler),
-      color(Color::off) {}
+      color(Color::off),
+      brightness(0) {}
 
 void RgbLed::handle(Command command) {
     if (command == ADVANCE_COLOR_COMMAND) {
@@ -43,25 +44,30 @@ RgbLed::Color RgbLed::getColor() const {
 RgbLed::State RgbLed::getState() const {
     switch (color) {
         case Color::red:
-            return {true, false, false};
+            return {true, false, false, brightness};
         case Color::green:
-            return {false, true, false};
+            return {false, true, false, brightness};
         case Color::blue:
-            return {false, false, true};
+            return {false, false, true, brightness};
         case Color::yellow:
-            return {true, true, false};
+            return {true, true, false, brightness};
         case Color::cyan:
-            return {false, true, true};
+            return {false, true, true, brightness};
         case Color::magenta:
-            return {true, false, true};
+            return {true, false, true, brightness};
         case Color::off:
         default:
-            return {false, false, false};
+            return {false, false, false, 0};
     }
 }
 
 void RgbLed::setColor(Color nextColor) {
     color = nextColor;
+    brightness = nextColor == Color::off ? 0 : 255;
+}
+
+void RgbLed::setBrightness(uint8_t nextBrightness) {
+    brightness = color == Color::off ? 0 : nextBrightness;
 }
 
 void RgbLed::advanceColor() {
