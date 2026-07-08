@@ -37,7 +37,7 @@ void testMapperCarriesRelativeRotationsAndActuatorStateAsGiven() {
     };
 
     const BleMotionTelemetry telemetry =
-        BleMotionTelemetryMapper::map(state, RgbLed::Color::green, true, false, 42);
+        BleMotionTelemetryMapper::map(state, RgbLed::Color::green, true, false, 42, 37.5f, true, 1);
 
     assertQuaternionEquals(state.upperMiddleRotation, telemetry.upperMiddleRotation);
     assertQuaternionEquals(state.middleLowerRotation, telemetry.middleLowerRotation);
@@ -46,6 +46,9 @@ void testMapperCarriesRelativeRotationsAndActuatorStateAsGiven() {
     TEST_ASSERT_TRUE(telemetry.buzzerActive);
     TEST_ASSERT_FALSE(telemetry.vibrationActive);
     TEST_ASSERT_EQUAL_UINT16(42, telemetry.sequenceNumber);
+    TEST_ASSERT_FLOAT_WITHIN(kTolerance, 37.5f, telemetry.jointFlexionDegrees);
+    TEST_ASSERT_TRUE(telemetry.isCalibrated);
+    TEST_ASSERT_EQUAL_UINT8(1, telemetry.activeJoint);
 }
 
 void testSerializerWritesTheDocumentedFixedLayout() {
@@ -57,6 +60,9 @@ void testSerializerWritesTheDocumentedFixedLayout() {
         true,
         false,
         0x1234,
+        90.5f,
+        true,
+        2,
     };
     uint8_t buffer[BleMotionTelemetrySerializer::WIRE_SIZE_BYTES] = {};
 
@@ -77,6 +83,10 @@ void testSerializerWritesTheDocumentedFixedLayout() {
     // Sequence number 0x1234 must land little-endian: low byte first.
     TEST_ASSERT_EQUAL_UINT8(0x34, buffer[51]);
     TEST_ASSERT_EQUAL_UINT8(0x12, buffer[52]);
+    // Appended fields: calibrated flexion (float @53), isCalibrated (@57), activeJoint (@58).
+    TEST_ASSERT_EQUAL_FLOAT(90.5f, readFloatAt(buffer, 53));
+    TEST_ASSERT_EQUAL_UINT8(1, buffer[57]);
+    TEST_ASSERT_EQUAL_UINT8(2, buffer[58]);
 }
 
 void testSerializerRejectsBufferSmallerThanWireSize() {
@@ -86,6 +96,9 @@ void testSerializerRejectsBufferSmallerThanWireSize() {
         {1.0f, 0.0f, 0.0f, 0.0f},
         0,
         false,
+        false,
+        0,
+        0.0f,
         false,
         0,
     };

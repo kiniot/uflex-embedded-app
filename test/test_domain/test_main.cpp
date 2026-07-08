@@ -19,6 +19,8 @@ void runAllSuites() {
     runSampleBatchSerializerTests();
     runJointTargetingTests();
     runActiveContextParserTests();
+    runSafetyMonitorTests();
+    runSettleDetectorTests();
 }
 
 } // namespace

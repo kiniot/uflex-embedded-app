@@ -37,6 +37,14 @@ struct BleMotionTelemetry {
     bool buzzerActive;
     bool vibrationActive;
     uint16_t sequenceNumber;
+    // Calibrated, gravity-anchored flexion angle of the active joint (degrees). This is the same
+    // value the safety path and edge use; the app shows it directly so its gauge matches the
+    // active exercise and reads 0 at the calibrated reference pose (no yaw drift).
+    float jointFlexionDegrees;
+    // Whether a session zero has been captured; the app shows "—" until true.
+    bool isCalibrated;
+    // Active joint the flexion refers to (ActiveJoint enum: 0=None, 1=Elbow, 2=Wrist).
+    uint8_t activeJoint;
 };
 
 #endif // UFLEX_INFRASTRUCTURE_TRANSPORT_BLE_MOTION_TELEMETRY_H

@@ -23,14 +23,14 @@
  */
 
 HwUflexRuntime::HwUflexRuntime()
-    : device({0, 0x68}, {1, 0x69}, {2, 0x68}),
-      secondaryBus(1),
-      hardwareImuArray({device.getUpperImu(), Wire},
-                       {device.getMiddleImu(), Wire},
-                       {device.getLowerImu(), secondaryBus}),
+    // All three IMUs share address 0x68 (AD0->GND) on one bus, isolated by their TCA9548A channel:
+    // upper=bicep=ch1 (proximal, feeds proximal_signal), middle=forearm=ch0, lower=hand=ch2 (dead mag).
+    : device({0, 0x68}, {1, 0x68}, {2, 0x68}),
+      hardwareImuArray({device.getUpperImu(), Wire, 1, false},
+                       {device.getMiddleImu(), Wire, 0, false},
+                       {device.getLowerImu(), Wire, 2, false}),
       statusBuzzer(BUZZER_PIN),
       statusLed(RGB_RED_PIN, RGB_GREEN_PIN, RGB_BLUE_PIN),
-      vibrationMotor(VIBRATION_MOTOR_PIN),
       edgeClient({UFLEX_WIFI_SSID, UFLEX_WIFI_PASSWORD, UFLEX_WIFI_CHANNEL, UFLEX_EDGE_HOST,
                   UFLEX_EDGE_PORT, UFLEX_EDGE_PATH, UFLEX_EDGE_DOWN_CHANNEL_PATH,
                   UFLEX_SERIAL_NUMBER, UFLEX_DEVICE_API_KEY}),
@@ -39,15 +39,11 @@ HwUflexRuntime::HwUflexRuntime()
 bool HwUflexRuntime::begin() {
     statusBuzzer.begin();
     statusLed.begin();
-    vibrationMotor.begin();
 
     Wire.begin(PRIMARY_SDA_PIN, PRIMARY_SCL_PIN);
-    secondaryBus.begin(SECONDARY_SDA_PIN, SECONDARY_SCL_PIN);
 
-    Serial.printf("Primary bus SDA=%u SCL=%u\n", PRIMARY_SDA_PIN, PRIMARY_SCL_PIN);
-    Serial.printf("Secondary bus SDA=%u SCL=%u\n", SECONDARY_SDA_PIN, SECONDARY_SCL_PIN);
+    Serial.printf("I2C bus (to TCA9548A mux) SDA=%u SCL=%u\n", PRIMARY_SDA_PIN, PRIMARY_SCL_PIN);
     Serial.printf("Buzzer test pin=%u\n", BUZZER_PIN);
-    Serial.printf("Vibration motor test pin=%u\n", VIBRATION_MOTOR_PIN);
     Serial.printf("RGB test pins R=%u G=%u B=%u\n", RGB_RED_PIN, RGB_GREEN_PIN, RGB_BLUE_PIN);
     Serial.println("Initializing MPU9250 IMU array...");
     Serial.println("Hardware integration is preliminary and still needs physical validation.");
@@ -80,7 +76,6 @@ bool HwUflexRuntime::update() {
 void HwUflexRuntime::applyOutputs() {
     statusBuzzer.apply(device.getStatusBuzzer());
     statusLed.apply(device.getStatusLed());
-    vibrationMotor.apply(device.getVibrationMotor());
 }
 
 UflexDevice& HwUflexRuntime::getDevice() {

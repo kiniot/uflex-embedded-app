@@ -20,7 +20,7 @@
  * byte-for-byte without conversion; only the explicit field order and absence
  * of padding need to match on the mobile side.
  *
- * Wire layout (53 bytes total), all multi-byte fields little-endian:
+ * Wire layout (59 bytes total), all multi-byte fields little-endian:
  *   offset  0: upperMiddleRotation.w  (float32)
  *   offset  4: upperMiddleRotation.x  (float32)
  *   offset  8: upperMiddleRotation.y  (float32)
@@ -37,6 +37,9 @@
  *   offset 49: buzzerActive           (uint8, 0 or 1)
  *   offset 50: vibrationActive        (uint8, 0 or 1)
  *   offset 51: sequenceNumber         (uint16)
+ *   offset 53: jointFlexionDegrees    (float32)
+ *   offset 57: isCalibrated           (uint8, 0 or 1)
+ *   offset 58: activeJoint            (uint8)
  *
  * @author Salim Ramirez
  * @date June 21, 2026
@@ -44,7 +47,7 @@
  */
 class BleMotionTelemetrySerializer {
 public:
-    static constexpr size_t WIRE_SIZE_BYTES = 53;
+    static constexpr size_t WIRE_SIZE_BYTES = 59;
 
     /**
      * @brief Encodes `payload` into `buffer` using the fixed wire layout.

@@ -24,18 +24,27 @@ GpioRgbLed::GpioRgbLed(uint8_t redPin, uint8_t greenPin, uint8_t bluePin)
       bluePin(bluePin) {}
 
 void GpioRgbLed::begin() const {
-    pinMode(redPin, OUTPUT);
-    pinMode(greenPin, OUTPUT);
-    pinMode(bluePin, OUTPUT);
-    digitalWrite(redPin, LOW);
-    digitalWrite(greenPin, LOW);
-    digitalWrite(bluePin, LOW);
+    ledcSetup(RED_CHANNEL, PWM_FREQUENCY_HZ, PWM_RESOLUTION_BITS);
+    ledcSetup(GREEN_CHANNEL, PWM_FREQUENCY_HZ, PWM_RESOLUTION_BITS);
+    ledcSetup(BLUE_CHANNEL, PWM_FREQUENCY_HZ, PWM_RESOLUTION_BITS);
+
+    ledcAttachPin(redPin, RED_CHANNEL);
+    ledcAttachPin(greenPin, GREEN_CHANNEL);
+    ledcAttachPin(bluePin, BLUE_CHANNEL);
+
+    ledcWrite(RED_CHANNEL, 0);
+    ledcWrite(GREEN_CHANNEL, 0);
+    ledcWrite(BLUE_CHANNEL, 0);
 }
 
 void GpioRgbLed::apply(const RgbLed& led) const {
     const RgbLed::State state = led.getState();
 
-    digitalWrite(redPin, state.redOn ? HIGH : LOW);
-    digitalWrite(greenPin, state.greenOn ? HIGH : LOW);
-    digitalWrite(bluePin, state.blueOn ? HIGH : LOW);
+    writeChannel(RED_CHANNEL, state.redOn, state.brightness);
+    writeChannel(GREEN_CHANNEL, state.greenOn, state.brightness);
+    writeChannel(BLUE_CHANNEL, state.blueOn, state.brightness);
+}
+
+void GpioRgbLed::writeChannel(uint8_t channel, bool on, uint8_t brightness) const {
+    ledcWrite(channel, on ? brightness : 0);
 }
