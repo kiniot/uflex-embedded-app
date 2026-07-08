@@ -260,6 +260,7 @@ Hardware and device guides:
 - [Arm Phase Wiring](docs/arm-phase-wiring.md)
 - [Actuator Activation Flow](docs/actuator-activation-flow.md)
 - [Device Identity Contract](docs/device-identity-contract.md)
+- [Embedded User Stories](docs/user-stories.md)
 
 Contribution guides:
 
