@@ -1,0 +1,55 @@
+@startuml uflex-arm-phase-wiring
+'  uFlex — Arm-phase system wiring (block diagram)
+'  Editable source companion of system-diagram.svg.
+'  Render: plantuml system-diagram.puml  (or any PlantUML viewer)
+title uFlex — Arm-phase system wiring\nPower chain · TCA9548A I2C mux · 3x MPU9250 · local actuators
+
+skinparam shadowing false
+skinparam rectangle {
+  RoundCorner 12
+  BorderThickness 1.5
+}
+skinparam ArrowThickness 1.4
+
+' ---------- Power chain ----------
+rectangle "LiPo 3.7 V\n1000 mAh" as BAT #FEF3C7
+rectangle "TP4056-PROT\ncharge + protection" as TP #FEF3C7
+rectangle "slider switch\n(ON/OFF)" as SW #FEF3C7
+rectangle "MT3608 step-up\n**set to 5.0 V**" as BOOST #FED7AA
+
+BAT -down-> TP : 3.7 V
+TP -down-> SW : OUT+
+SW -down-> BOOST
+BOOST -right-> ESP : 5 V → VIN
+
+' ---------- ESP32 ----------
+rectangle "ESP32 WROOM-32\n----\n3V3 rail (onboard reg)\nI2C: GPIO21 SDA / GPIO22 SCL\nActuators: GPIO32 / 27 / 18 / 19 / 23\nGPIO25/26 freed" as ESP #1F2937
+
+' ---------- I2C mux ----------
+rectangle "TCA9548A\nI2C mux · addr 0x70\nA0/A1/A2 → GND · RST → 3V3" as MUX #EDE9FE
+
+ESP -right-> MUX : I2C 100 kHz\n(SDA21 / SCL22)
+
+' ---------- IMUs ----------
+rectangle "MPU9250 #1 — FOREARM (local)\nch0 · AD0→GND 0x68 · AK8963 0x0C\non main board" as IMU1 #E0E7FF
+rectangle "MPU9250 #2 — BICEPS (remote)\nch1 · AD0→GND 0x68 · AK8963 0x0C\n4-wire silicone: 3V3·GND·SD1·SC1" as IMU2 #E0E7FF
+rectangle "MPU9250 #3 — HAND (remote)\nch2 · AD0→GND 0x68 · AK8963 0x0C\n4-wire silicone: 3V3·GND·SD2·SC2" as IMU3 #E0E7FF
+
+MUX -right-> IMU1 : channel 0
+MUX -right-> IMU2 : channel 1
+MUX -right-> IMU3 : channel 2
+
+' ---------- Actuators ----------
+rectangle "Vibration motor\nGPIO32 → 1k → 2N2222\nmotor @ 3V3 · 1N4148 flyback" as MOTOR #D1FAE5
+rectangle "Active buzzer 3.3 V\nGPIO27 → 1k → 2N2222\nbuzzer @ 3V3" as BUZZ #D1FAE5
+rectangle "RGB LED (common cathode)\nGPIO18/19/23 → 220Ω → R/G/B\nCOM → GND" as RGB #D1FAE5
+
+ESP -down-> MOTOR
+ESP -down-> BUZZ
+ESP -down-> RGB
+
+legend right
+  ⚠ Set MT3608 to 5.0 V **before** connecting the ESP32.
+  Do not power USB and battery-5V at once. Common GND. Check B+/B- polarity.
+endlegend
+@enduml

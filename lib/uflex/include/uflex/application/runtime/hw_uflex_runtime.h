@@ -10,7 +10,6 @@
 #include "uflex/application/runtime/uflex_runtime.h"
 #include "uflex/infrastructure/adapters/common/gpio_active_buzzer.h"
 #include "uflex/infrastructure/adapters/common/gpio_rgb_led.h"
-#include "uflex/infrastructure/adapters/common/gpio_vibration_motor.h"
 #include "uflex/infrastructure/adapters/hw/mpu9250_imu_array.h"
 #include "uflex/infrastructure/transport/ble_telemetry_server.h"
 #include "uflex/infrastructure/transport/edge_client.h"
@@ -40,21 +39,17 @@ public:
 
 private:
     static constexpr uint8_t BUZZER_PIN = 27;
-    static constexpr uint8_t VIBRATION_MOTOR_PIN = 32;
-    static constexpr uint8_t RGB_RED_PIN = 18;
+    static constexpr uint8_t RGB_RED_PIN = 23;
     static constexpr uint8_t RGB_GREEN_PIN = 19;
-    static constexpr uint8_t RGB_BLUE_PIN = 23;
+    static constexpr uint8_t RGB_BLUE_PIN = 18;
+    // Single I2C bus to the TCA9548A multiplexer; the 3 IMUs sit on its channels (see the adapter).
     static constexpr uint8_t PRIMARY_SDA_PIN = 21;
     static constexpr uint8_t PRIMARY_SCL_PIN = 22;
-    static constexpr uint8_t SECONDARY_SDA_PIN = 26;
-    static constexpr uint8_t SECONDARY_SCL_PIN = 25;
 
     UflexDevice device;
-    TwoWire secondaryBus;
     Mpu9250ImuArray hardwareImuArray;
     GpioActiveBuzzer statusBuzzer;
     GpioRgbLed statusLed;
-    GpioVibrationMotor vibrationMotor;
     EdgeClient edgeClient;
     BleTelemetryServer bleTelemetryServer;
 };

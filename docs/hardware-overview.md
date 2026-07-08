@@ -99,13 +99,18 @@ pio run -e esp32_sim   # build for simulation
 - **On-board validation (flashed `esp32_hw`, read serial):** 3× MPU9250 detected
   (`WHO_AM_I=0x71`), 3× AK8963 reports **"ready"** (the ASA init sequence does not break
   init), the gyro calibration runs and stores a bias, BLE comes up.
-- **Known blocker (hardware, pre-existing):** at runtime the AK8963 **DRDY (ST1) bit never
-  sets** → `magnetometer read skipped (not ready)` → the magnetometer stays 0 and the filter
-  stays in **6-DOF (yaw drifts)**. So the proximal yaw is **not yet real**. This is the
-  remaining hardware debug (the "Error 263" area): common on clone MPU9250 modules, or a
-  continuous-mode read-sequence detail (likely fix: read `ST1 + 6 data + ST2` in a **single
-  8-byte transaction**). It was **not** introduced by the magnetometer work — the DRDY check
-  pre-dates it.
+- **Magnetometer blocker — RESOLVED by the mux (2026-07-02):** the old "AK8963 DRDY never sets /
+  mag = 0 / Error 263" was the **AK8963 I²C address collision** (`0x0C` shared across IMUs). The
+  **TCA9548A mux resolves it** — with each IMU isolated on its own channel, the magnetometers read.
+  Validated on the arm-phase board: **2 of 3 IMUs read stable + respond to rotation via
+  bypass-per-channel**; the 3rd IMU has a genuinely **dead AK8963** (fault follows the IMU), placed
+  on the non-critical hand channel. See the bring-up results in
+  [`arm-phase-assembly-plan.md`](arm-phase-assembly-plan.md).
+- **Firmware still uses two buses** (`Wire` 21/22 + `Wire1` 26/25) and does **not** yet drive the
+  mux. The pending **mux channel-select delta** is: single bus + `1<<n → 0x70` before each IMU +
+  **bypass-per-channel** (with the mux, the AK8963 I²C master mode is no longer needed).
+- **Vibration motor dropped** (magnetometer interference + motion noise) → `GPIO32` unused, local
+  safety = buzzer only.
 - **`begin()` ordering:** the IMU init (and gyro calibration) currently runs **after** the
   WiFi connect, so a bad/placeholder `.env` (e.g. `YOUR_WIFI_SSID`) delays sensing by the
   ~20 s WiFi timeout. Consider initializing the IMUs **before** the network.

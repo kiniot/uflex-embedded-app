@@ -68,6 +68,25 @@ ActiveJoint parseJoint(const char* value) {
     return ActiveJoint::None;
 }
 
+ActiveMovement parseMovement(const char* value) {
+    if (value == nullptr || *value != '"') {
+        return ActiveMovement::None;
+    }
+    if (strncmp(value + 1, "FLEXION", 7) == 0) {
+        return ActiveMovement::Flexion;
+    }
+    if (strncmp(value + 1, "EXTENSION", 9) == 0) {
+        return ActiveMovement::Extension;
+    }
+    if (strncmp(value + 1, "PRONATION", 9) == 0) {
+        return ActiveMovement::Pronation;
+    }
+    if (strncmp(value + 1, "SUPINATION", 10) == 0) {
+        return ActiveMovement::Supination;
+    }
+    return ActiveMovement::None;
+}
+
 } // namespace
 
 void parseActiveContext(const char* json, ActiveSerieContext& out) {
@@ -77,6 +96,7 @@ void parseActiveContext(const char* json, ActiveSerieContext& out) {
     }
 
     out.activeJoint = parseJoint(valueAfterKey(json, "\"active_joint\""));
+    out.activeMovement = parseMovement(valueAfterKey(json, "\"active_movement\""));
 
     const char* maxValue = valueAfterKey(json, "\"max_safe_angle\"");
     if (!isJsonNull(maxValue)) {

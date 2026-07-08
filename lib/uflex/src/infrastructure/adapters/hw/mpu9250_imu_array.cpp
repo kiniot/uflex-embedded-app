@@ -25,8 +25,10 @@
 Mpu9250ImuArray::Mpu9250ImuArray(ImuBinding firstImu, ImuBinding secondImu, ImuBinding thirdImu)
     : imus{firstImu, secondImu, thirdImu} {
     // Identity defaults so an un-calibrated IMU behaves exactly as before: unit ASA scale
-    // (raw mag passes through) and zero gyro bias (raw gyro passes through).
+    // (raw mag passes through) and zero gyro bias (raw gyro passes through). hasMagnetometer is
+    // discovered at init (true only if the AK8963 answers), so start pessimistic.
     for (ImuBinding& binding : imus) {
+        binding.hasMagnetometer = false;
         binding.magAsa[0] = 1.0f;
         binding.magAsa[1] = 1.0f;
         binding.magAsa[2] = 1.0f;
@@ -37,6 +39,13 @@ Mpu9250ImuArray::Mpu9250ImuArray(ImuBinding firstImu, ImuBinding secondImu, ImuB
 }
 
 bool Mpu9250ImuArray::begin() {
+    // All IMUs sit behind the TCA9548A on one bus; probe the mux first (mirrors the bring-up scan).
+    if (detectMux(imus[0].bus)) {
+        Serial.printf("TCA9548A [0x%02X] detected\n", TCA9548A_ADDRESS);
+    } else {
+        Serial.printf("TCA9548A [0x%02X] absent -> IMUs unreachable\n", TCA9548A_ADDRESS);
+    }
+
     bool allInitialized = true;
 
     for (ImuBinding& binding : imus) {
@@ -48,6 +57,19 @@ bool Mpu9250ImuArray::begin() {
     }
 
     return allInitialized;
+}
+
+bool Mpu9250ImuArray::detectMux(TwoWire& bus) {
+    bus.beginTransmission(TCA9548A_ADDRESS);
+    return bus.endTransmission() == 0;
+}
+
+bool Mpu9250ImuArray::selectMuxChannel(TwoWire& bus, uint8_t channel) {
+    // Route the shared bus to one IMU. Called before every per-IMU operation; the mux holds the
+    // selection until the next write, and begin()/update() touch one IMU at a time (no interleaving).
+    bus.beginTransmission(TCA9548A_ADDRESS);
+    bus.write(static_cast<uint8_t>(1 << channel));
+    return bus.endTransmission() == 0;
 }
 
 bool Mpu9250ImuArray::update() {
@@ -63,55 +85,56 @@ bool Mpu9250ImuArray::update() {
 }
 
 bool Mpu9250ImuArray::initializeImu(ImuBinding& binding) {
-    uint8_t whoAmI = 0;
-    if (!detectImu(binding, whoAmI)) {
-        Serial.printf("MPU9250 [0x%02X] not detected\n", binding.imu.getI2cAddress());
+    // Route the shared bus to this IMU's mux channel; every access below inherits the selection.
+    // The IMUs all share address 0x68, so logs are keyed by channel, not address.
+    if (!selectMuxChannel(binding.bus, binding.muxChannel)) {
+        Serial.printf("MPU9250 [ch%u] mux channel select failed\n", binding.muxChannel);
         return false;
     }
 
-    Serial.printf("MPU9250 [0x%02X] WHO_AM_I=0x%02X\n", binding.imu.getI2cAddress(), whoAmI);
+    uint8_t whoAmI = 0;
+    if (!detectImu(binding, whoAmI)) {
+        Serial.printf("MPU9250 [ch%u] not detected\n", binding.muxChannel);
+        return false;
+    }
+
+    Serial.printf("MPU9250 [ch%u] WHO_AM_I=0x%02X\n", binding.muxChannel, whoAmI);
 
     if (whoAmI != EXPECTED_WHO_AM_I) {
-        Serial.printf("MPU9250 [0x%02X] unexpected WHO_AM_I value\n",
-                      binding.imu.getI2cAddress());
+        Serial.printf("MPU9250 [ch%u] unexpected WHO_AM_I value\n", binding.muxChannel);
         return false;
     }
 
     // Device reset (PWR_MGMT_1 H_RESET) to a known state. The MPU9250 keeps its registers across an
-    // ESP32-only reset (it is not power-cycled), so leftover I2C-master/bypass config from a prior
-    // boot would make the bypass-based AK8963 init fail. Reset clears that.
+    // ESP32-only reset (it is not power-cycled), so leftover config from a prior boot would make the
+    // bypass-based AK8963 init fail. Reset clears that.
     writeRegister(binding.bus, binding.imu.getI2cAddress(), POWER_MANAGEMENT_1_REGISTER, 0x80);
     delay(100);
 
     if (!wakeImu(binding)) {
-        Serial.printf("MPU9250 [0x%02X] wake-up failed\n", binding.imu.getI2cAddress());
+        Serial.printf("MPU9250 [ch%u] wake-up failed\n", binding.muxChannel);
         return false;
     }
 
-    Serial.printf("MPU9250 [0x%02X] wake-up command sent\n", binding.imu.getI2cAddress());
-
+    // Enable I2C bypass and leave it on: with the mux isolating each channel, only one AK8963 at
+    // 0x0C is ever visible, so it is directly addressable per channel (no I2C-master indirection).
     if (!enableMagnetometerBypass(binding)) {
-        Serial.printf("MPU9250 [0x%02X] magnetometer bypass failed\n",
-                      binding.imu.getI2cAddress());
+        Serial.printf("MPU9250 [ch%u] magnetometer bypass failed\n", binding.muxChannel);
         return false;
     }
 
-    if (!initializeMagnetometer(binding)) {
-        Serial.printf("MPU9250 [0x%02X] AK8963 magnetometer init failed\n",
-                      binding.imu.getI2cAddress());
-        return false;
+    // Tolerate a dead/absent magnetometer (one IMU's AK8963 is dead): the accel/gyro are still
+    // valid, so keep the IMU and let the orientation filter fall back to 6-DOF. Logged once here,
+    // never per-cycle.
+    if (initializeMagnetometer(binding)) {
+        binding.hasMagnetometer = true;
+        Serial.printf("MPU9250 [ch%u] AK8963 magnetometer ready\n", binding.muxChannel);
+    } else {
+        binding.hasMagnetometer = false;
+        Serial.printf("MPU9250 [ch%u] AK8963 absent -> 6-DOF (yaw will drift on this segment)\n",
+                      binding.muxChannel);
     }
 
-    // Switch this AK8963 from bypass to the MPU9250's internal I2C master so it no longer shares
-    // the fixed 0x0C address on the external bus. Safe to do per-IMU here: begin() initializes the
-    // IMUs sequentially, so bypass is turned off on this one before the next same-bus IMU enables it.
-    if (!enableMagnetometerMasterMode(binding)) {
-        Serial.printf("MPU9250 [0x%02X] AK8963 master-mode setup failed\n",
-                      binding.imu.getI2cAddress());
-        return false;
-    }
-
-    Serial.printf("MPU9250 [0x%02X] AK8963 magnetometer ready\n", binding.imu.getI2cAddress());
     return true;
 }
 
@@ -158,36 +181,6 @@ bool Mpu9250ImuArray::initializeMagnetometer(ImuBinding& binding) {
                          AK8963_CONTINUOUS_MEASUREMENT_16BIT_MODE2);
 }
 
-bool Mpu9250ImuArray::enableMagnetometerMasterMode(ImuBinding& binding) {
-    const uint8_t address = binding.imu.getI2cAddress();
-
-    // Disable bypass FIRST: BYPASS_EN gates the internal master, and on a shared bus it is what
-    // puts two AK8963 at 0x0C. After this, the AK8963 is reachable only through this MPU9250.
-    if (!writeRegister(binding.bus, address, INT_PIN_CFG_REGISTER, BYPASS_DISABLE_VALUE)) {
-        return false;
-    }
-    // Enable the MPU9250's internal I2C master and set the auxiliary-bus clock (400kHz).
-    if (!writeRegister(binding.bus, address, USER_CTRL_REGISTER, I2C_MST_EN_VALUE)) {
-        return false;
-    }
-    if (!writeRegister(binding.bus, address, I2C_MST_CTRL_REGISTER, I2C_MST_CTRL_VALUE)) {
-        return false;
-    }
-    // SLV0: continuously read AK8963 ST1 + 6 data bytes + ST2 (regs 0x02..0x09) into EXT_SENS_DATA
-    // every sample cycle. Reading ST2 each cycle is what unlatches the AK8963 for the next sample.
-    if (!writeRegister(binding.bus, address, I2C_SLV0_ADDR_REGISTER, AK8963_SLV0_ADDR_VALUE)) {
-        return false;
-    }
-    if (!writeRegister(binding.bus, address, I2C_SLV0_REG_REGISTER, AK8963_ST1_REGISTER)) {
-        return false;
-    }
-    if (!writeRegister(binding.bus, address, I2C_SLV0_CTRL_REGISTER, I2C_SLV0_CTRL_VALUE)) {
-        return false;
-    }
-    delay(MAGNETOMETER_MASTER_SETTLE_MS);  // let EXT_SENS_DATA populate before the first read
-    return true;
-}
-
 bool Mpu9250ImuArray::detectImu(ImuBinding& binding, uint8_t& whoAmI) {
     return readRegisters(binding.bus, binding.imu.getI2cAddress(), WHO_AM_I_REGISTER, &whoAmI, 1);
 }
@@ -198,19 +191,25 @@ bool Mpu9250ImuArray::wakeImu(ImuBinding& binding) {
 }
 
 bool Mpu9250ImuArray::updateImu(ImuBinding& binding) {
-    uint8_t rawData[14] = {};
-    if (!readRegisters(binding.bus, binding.imu.getI2cAddress(), MEASUREMENT_START_REGISTER,
-                       rawData, sizeof(rawData))) {
-        Serial.printf("MPU9250 [0x%02X] read failed\n", binding.imu.getI2cAddress());
+    // Select this IMU's channel; the accel/gyro read and the AK8963 read below target the same one.
+    if (!selectMuxChannel(binding.bus, binding.muxChannel)) {
         return false;
     }
 
+    uint8_t rawData[14] = {};
+    if (!readRegisters(binding.bus, binding.imu.getI2cAddress(), MEASUREMENT_START_REGISTER,
+                       rawData, sizeof(rawData))) {
+        Serial.printf("MPU9250 [ch%u] read failed\n", binding.muxChannel);
+        return false;
+    }
+
+    // Only IMUs with a working magnetometer read it; a transient failure just leaves mag at 0 for
+    // this cycle (6-DOF), and the dead-mag IMU never reads it -> no per-cycle log spam.
     int16_t magX = 0;
     int16_t magY = 0;
     int16_t magZ = 0;
-    if (!readMagnetometer(binding, magX, magY, magZ)) {
-        Serial.printf("MPU9250 [0x%02X] magnetometer read skipped (not ready)\n",
-                      binding.imu.getI2cAddress());
+    if (binding.hasMagnetometer) {
+        readMagnetometer(binding, magX, magY, magZ);
     }
 
     const ImuSample sample{
@@ -232,12 +231,12 @@ bool Mpu9250ImuArray::updateImu(ImuBinding& binding) {
 
 bool Mpu9250ImuArray::readMagnetometer(ImuBinding& binding, int16_t& magX, int16_t& magY,
                                        int16_t& magZ) {
-    // The MPU9250's internal master continuously copies the AK8963's ST1 + 6 data bytes + ST2
-    // into EXT_SENS_DATA; read it here under the MPU9250's own address (no 0x0C on the external
-    // bus, so two MPU9250 can share a bus without their magnetometers colliding). One transaction.
-    uint8_t rawData[AK8963_SLV0_READ_LENGTH] = {};
-    if (!readRegisters(binding.bus, binding.imu.getI2cAddress(), EXT_SENS_DATA_00_REGISTER,
-                       rawData, sizeof(rawData))) {
+    // Bypass-per-channel: the mux isolates this channel so the AK8963 at the fixed 0x0C is directly
+    // addressable. Read ST1 + 6 data bytes + ST2 (regs 0x02..0x09) in one transaction; the caller
+    // has already selected this IMU's mux channel. Reading ST2 unlatches the AK8963 for next sample.
+    uint8_t rawData[AK8963_READ_LENGTH] = {};
+    if (!readRegisters(binding.bus, AK8963_I2C_ADDRESS, AK8963_ST1_REGISTER, rawData,
+                       sizeof(rawData))) {
         return false;
     }
 
@@ -299,16 +298,22 @@ int16_t Mpu9250ImuArray::readLittleEndianInt16(const uint8_t* buffer, size_t off
 }
 
 void Mpu9250ImuArray::calibrateGyroBias(ImuBinding& binding) {
-    Serial.printf("MPU9250 [0x%02X] gyro calibration: keep the kit still...\n",
-                  binding.imu.getI2cAddress());
+    // Hold this IMU's channel for the whole still-sampling window (no other IMU is touched here).
+    if (!selectMuxChannel(binding.bus, binding.muxChannel)) {
+        Serial.printf("MPU9250 [ch%u] gyro calibration: mux select failed; using zero bias\n",
+                      binding.muxChannel);
+        return;
+    }
+
+    Serial.printf("MPU9250 [ch%u] gyro calibration: keep the kit still...\n", binding.muxChannel);
 
     GyroBiasCalibrator calibrator(GYRO_BIAS_CALIBRATION_SAMPLES);
     for (uint16_t sampleIndex = 0; sampleIndex < GYRO_BIAS_CALIBRATION_SAMPLES; ++sampleIndex) {
         uint8_t rawData[14] = {};
         if (!readRegisters(binding.bus, binding.imu.getI2cAddress(), MEASUREMENT_START_REGISTER,
                            rawData, sizeof(rawData))) {
-            Serial.printf("MPU9250 [0x%02X] gyro calibration read failed; using zero bias\n",
-                          binding.imu.getI2cAddress());
+            Serial.printf("MPU9250 [ch%u] gyro calibration read failed; using zero bias\n",
+                          binding.muxChannel);
             return;  // soft-fail: gyroBias stays at its identity {0,0,0}
         }
         calibrator.addSample(readBigEndianInt16(rawData, 8), readBigEndianInt16(rawData, 10),
@@ -317,7 +322,7 @@ void Mpu9250ImuArray::calibrateGyroBias(ImuBinding& binding) {
     }
 
     calibrator.getBias(binding.gyroBias[0], binding.gyroBias[1], binding.gyroBias[2]);
-    Serial.printf("MPU9250 [0x%02X] gyro bias=(%d, %d, %d)\n", binding.imu.getI2cAddress(),
+    Serial.printf("MPU9250 [ch%u] gyro bias=(%d, %d, %d)\n", binding.muxChannel,
                   binding.gyroBias[0], binding.gyroBias[1], binding.gyroBias[2]);
 }
 
