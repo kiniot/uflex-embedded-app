@@ -91,6 +91,12 @@ Runtime selection is compile-time:
 Both runtimes update the same domain `Imu` objects and expose the same
 `UflexRuntime` contract, so the application loop can stay target-agnostic.
 
+### Class Diagram
+
+![uFlex embedded class diagram](docs/class-diagram.png)
+
+The source diagram is maintained in [`docs/class-diagram.puml`](docs/class-diagram.puml).
+
 ---
 
 ## Data Flow

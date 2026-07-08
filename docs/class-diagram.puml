@@ -1,0 +1,443 @@
+@startuml
+title uFlex Embedded App - Class Diagram
+
+left to right direction
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam linetype ortho
+hide empty members
+
+package "ModestIoT" as ModestIoT {
+    class "Event" as Event <<struct>> {
+        + id: int
+        + Event(eventId: int)
+    }
+
+    class "Command" as Command <<struct>> {
+        + id: int
+        + Command(commandId: int)
+    }
+
+    interface "EventHandler" as EventHandler {
+        + on(event: Event): void
+    }
+
+    interface "CommandHandler" as CommandHandler {
+        + handle(command: Command): void
+    }
+
+    class "Sensor" as Sensor
+    abstract class "Device" as Device
+    class "Actuator" as Actuator
+}
+
+package "domain.sensors" as DomainSensors {
+    class "ImuSample" as ImuSample <<struct>> {
+        + accelX: int16_t
+        + accelY: int16_t
+        + accelZ: int16_t
+        + gyroX: int16_t
+        + gyroY: int16_t
+        + gyroZ: int16_t
+        + temperature: int16_t
+        + magX: int16_t
+        + magY: int16_t
+        + magZ: int16_t
+    }
+
+    class "Imu" as Imu {
+        - i2cAddress: uint8_t
+        - lastSample: ImuSample
+        + {static} MOTION_DETECTED_EVENT: Event
+        + getI2cAddress(): uint8_t
+        + getLastSample(): const ImuSample&
+        + updateSample(sample: const ImuSample&): void
+    }
+}
+
+package "domain.math/services" as DomainServices {
+    class "Quaternion" as Quaternion <<struct>> {
+        + w: float
+        + x: float
+        + y: float
+        + z: float
+        + {static} identity(): Quaternion
+    }
+
+    class "RelativeAngle" as RelativeAngle <<struct>> {
+        + pitchDegrees: float
+        + rollDegrees: float
+    }
+
+    class "RelativeAngleCalculator" as RelativeAngleCalculator {
+        + {static} calculate(first: ImuSample, second: ImuSample): RelativeAngle
+    }
+
+    class "RelativeRotationCalculator" as RelativeRotationCalculator {
+        + {static} calculate(first: Quaternion, second: Quaternion): Quaternion
+    }
+
+    class "OrientationFilter" as OrientationFilter {
+        - beta: float
+        - orientation: Quaternion
+        + update(sample: ImuSample, deltaTimeSeconds: float): Quaternion
+        + getOrientation(): const Quaternion&
+        + reset(): void
+    }
+
+    class "GyroBiasCalibrator" as GyroBiasCalibrator {
+        + addSample(gyroX: int16_t, gyroY: int16_t, gyroZ: int16_t): bool
+        + isComplete(): bool
+        + getBias(biasX: int16_t&, biasY: int16_t&, biasZ: int16_t&): void
+        + reset(): void
+    }
+
+    class "JointAngleCalculator" as JointAngleCalculator {
+        - zeroReference: RelativeAngle
+        - calibrated: bool
+        + calibrate(jointAngle: RelativeAngle): void
+        + absoluteFlexionDegrees(jointAngle: RelativeAngle): float
+        + isCalibrated(): bool
+        + reset(): void
+    }
+}
+
+package "domain.actuators" as DomainActuators {
+    class "ActiveBuzzer" as ActiveBuzzer {
+        - enabled: bool
+        + handle(command: Command): void
+        + isEnabled(): bool
+    }
+
+    class "RgbLed" as RgbLed {
+        - color: Color
+        - brightness: uint8_t
+        + setColor(nextColor: Color): void
+        + setBrightness(nextBrightness: uint8_t): void
+        + getColor(): Color
+        + getState(): State
+    }
+
+    class "VibrationMotor" as VibrationMotor {
+        - enabled: bool
+        + handle(command: Command): void
+        + isEnabled(): bool
+    }
+}
+
+package "domain.devices" as DomainDevices {
+    class "MotionState" as MotionState <<struct>> {
+        + upperSample: ImuSample
+        + middleSample: ImuSample
+        + lowerSample: ImuSample
+        + upperMiddleAngle: RelativeAngle
+        + middleLowerAngle: RelativeAngle
+        + upperLowerAngle: RelativeAngle
+        + upperMiddleRotation: Quaternion
+        + middleLowerRotation: Quaternion
+        + upperLowerRotation: Quaternion
+    }
+
+    class "UflexDevice::ImuConfig" as ImuConfig <<struct>> {
+        + imuId: int
+        + i2cAddress: uint8_t
+    }
+
+    class "UflexDevice" as UflexDevice {
+        - upperImu: Imu
+        - middleImu: Imu
+        - lowerImu: Imu
+        - statusBuzzer: ActiveBuzzer
+        - statusLed: RgbLed
+        - vibrationMotor: VibrationMotor
+        - upperOrientationFilter: OrientationFilter
+        - middleOrientationFilter: OrientationFilter
+        - lowerOrientationFilter: OrientationFilter
+        + on(event: Event): void
+        + handle(command: Command): void
+        + updateOrientations(deltaTimeSeconds: float): void
+        + getMotionState(): MotionState
+    }
+}
+
+package "application" as Application {
+    class "SafetyMonitor" as SafetyMonitor {
+        - triggered: bool
+        - armed: bool
+        + evaluate(angleDegrees: float, context: ActiveSerieContext, calibrated: bool, contextFresh: bool, hysteresisDegrees: float): bool
+        + isTriggered(): bool
+        + isArmed(): bool
+    }
+
+    class "SettleDetector" as SettleDetector {
+        + update(gyroMagnitude: float): bool
+        + reset(): void
+    }
+
+    class "joint_targeting" as JointTargeting <<free functions>> {
+        + activeJointRotation(state: MotionState, joint: ActiveJoint, movement: ActiveMovement): Quaternion
+        + activeJointAngle(state: MotionState, joint: ActiveJoint, movement: ActiveMovement): RelativeAngle
+        + exceedsSafeAngle(targetAngleDegrees: float, context: ActiveSerieContext): bool
+    }
+
+    class "UflexApplication" as UflexApplication {
+        - runtime: UflexRuntime&
+        - activeContext: ActiveSerieContext
+        - jointAngleCalculator: JointAngleCalculator
+        - safetyMonitor: SafetyMonitor
+        - settleDetector: SettleDetector
+        + begin(): void
+        + loop(): void
+    }
+}
+
+package "application.runtime" as Runtime {
+    abstract class "UflexRuntime" as UflexRuntime {
+        + begin(): bool
+        + update(): bool
+        + applyOutputs(): void
+        + getDevice(): UflexDevice&
+        + getEdgeTransport(): EdgeTransport&
+        + getBleTransport(): BleTransport&
+    }
+
+    class "SimUflexRuntime" as SimUflexRuntime {
+        - device: UflexDevice
+        - secondaryBus: TwoWire
+        - simulatedImuArray: SimulatedImuArray
+        - statusBuzzer: GpioActiveBuzzer
+        - statusLed: GpioRgbLed
+        - vibrationMotor: GpioVibrationMotor
+        - edgeClient: EdgeClient
+        - bleTransport: NoOpBleTransport
+    }
+
+    class "HwUflexRuntime" as HwUflexRuntime {
+        - device: UflexDevice
+        - hardwareImuArray: Mpu9250ImuArray
+        - statusBuzzer: GpioActiveBuzzer
+        - statusLed: GpioRgbLed
+        - edgeClient: EdgeClient
+        - bleTelemetryServer: BleTelemetryServer
+    }
+
+    class "createUflexRuntime()" as CreateUflexRuntime <<free function>>
+}
+
+package "infrastructure.adapters" as Adapters {
+    class "SimulatedImuArray::ImuBinding" as SimImuBinding <<struct>> {
+        + imu: Imu&
+        + bus: TwoWire&
+    }
+
+    class "SimulatedImuArray" as SimulatedImuArray {
+        - imus: ImuBinding[3]
+        + begin(): bool
+        + update(): bool
+    }
+
+    class "Mpu9250ImuArray::ImuBinding" as HwImuBinding <<struct>> {
+        + imu: Imu&
+        + bus: TwoWire&
+        + muxChannel: uint8_t
+        + hasMagnetometer: bool
+        + magAsa: float[3]
+        + gyroBias: int16_t[3]
+    }
+
+    class "Mpu9250ImuArray" as Mpu9250ImuArray {
+        - imus: ImuBinding[3]
+        + begin(): bool
+        + update(): bool
+        - selectMuxChannel(bus: TwoWire&, channel: uint8_t): bool
+        - readMagnetometer(binding: ImuBinding&, magX: int16_t&, magY: int16_t&, magZ: int16_t&): bool
+        - calibrateGyroBias(binding: ImuBinding&): void
+    }
+
+    class "GpioActiveBuzzer" as GpioActiveBuzzer {
+        + begin(): void
+        + apply(buzzer: ActiveBuzzer): void
+    }
+
+    class "GpioRgbLed" as GpioRgbLed {
+        + begin(): void
+        + apply(led: RgbLed): void
+    }
+
+    class "GpioVibrationMotor" as GpioVibrationMotor {
+        + begin(): void
+        + apply(vibrationMotor: VibrationMotor): void
+    }
+}
+
+package "infrastructure.transport" as Transport {
+    class "ActiveSerieContext" as ActiveSerieContext <<struct>> {
+        + activeJoint: ActiveJoint
+        + activeMovement: ActiveMovement
+        + maxSafeAngle: float
+        + hasMaxSafeAngle: bool
+        + serieId: char[32]
+        + hasContext: bool
+    }
+
+    class "MotionPayload" as MotionPayload <<struct>> {
+        + upperMiddleAngle: RelativeAngle
+        + middleLowerAngle: RelativeAngle
+        + upperLowerAngle: RelativeAngle
+    }
+
+    class "JointSample" as JointSample <<struct>> {
+        + targetAngleDegrees: float
+        + proximalSignalDegrees: float
+    }
+
+    class "SampleBatchPayload" as SampleBatchPayload <<struct>> {
+        + serialNumber: const char*
+        + samples: const JointSample*
+        + sampleCount: size_t
+    }
+
+    class "BleMotionTelemetry" as BleMotionTelemetry <<struct>> {
+        + upperMiddleRotation: Quaternion
+        + middleLowerRotation: Quaternion
+        + upperLowerRotation: Quaternion
+        + ledColor: uint8_t
+        + buzzerActive: bool
+        + vibrationActive: bool
+        + sequenceNumber: uint16_t
+        + jointFlexionDegrees: float
+        + isCalibrated: bool
+        + activeJoint: uint8_t
+    }
+
+    interface "EdgeTransport" as EdgeTransport {
+        + begin(): bool
+        + isReady(): bool
+        + publish(payload: MotionPayload): bool
+        + publishSamples(payload: SampleBatchPayload): bool
+        + fetchActiveContext(out: ActiveSerieContext&): bool
+    }
+
+    interface "BleTransport" as BleTransport {
+        + begin(): bool
+        + isReady(): bool
+        + publish(payload: BleMotionTelemetry): bool
+    }
+
+    class "EdgeClient" as EdgeClient
+    class "BleTelemetryServer" as BleTelemetryServer
+    class "NoOpBleTransport" as NoOpBleTransport
+    class "WifiConnection" as WifiConnection
+    class "RESTClient" as RESTClient
+    class "MotionPayloadMapper" as MotionPayloadMapper
+    class "MotionPayloadSerializer" as MotionPayloadSerializer
+    class "SampleBatchSerializer" as SampleBatchSerializer
+    class "BleMotionTelemetryMapper" as BleMotionTelemetryMapper
+    class "BleMotionTelemetrySerializer" as BleMotionTelemetrySerializer
+    class "parseActiveContext()" as ParseActiveContext <<free function>>
+}
+
+package "Project Files" as ProjectFiles {
+    class "platformio.ini" as PlatformIoConfig <<file>>
+    class "include/config/build_config.h" as BuildConfig <<file>>
+    class "src/main.cpp" as MainEntry <<file>>
+}
+
+EventHandler <|.. Sensor
+CommandHandler <|.. Actuator
+EventHandler <|.. Device
+CommandHandler <|.. Device
+Sensor <|-- Imu
+Device <|-- UflexDevice
+Actuator <|-- ActiveBuzzer
+Actuator <|-- RgbLed
+Actuator <|-- VibrationMotor
+
+Imu *-- ImuSample
+Imu ..> Event
+UflexDevice *-- "3" Imu
+UflexDevice *-- ActiveBuzzer
+UflexDevice *-- RgbLed
+UflexDevice *-- VibrationMotor
+UflexDevice *-- "3" OrientationFilter
+UflexDevice *-- "3" RelativeAngle
+UflexDevice *-- "3" Quaternion
+UflexDevice ..> RelativeAngleCalculator
+UflexDevice ..> RelativeRotationCalculator
+UflexDevice ..> MotionState
+
+MotionState *-- "3" ImuSample
+MotionState *-- "3" RelativeAngle
+MotionState *-- "3" Quaternion
+OrientationFilter *-- Quaternion
+OrientationFilter ..> ImuSample
+RelativeAngleCalculator ..> ImuSample
+RelativeRotationCalculator ..> Quaternion
+JointAngleCalculator *-- RelativeAngle
+
+UflexApplication o-- UflexRuntime
+UflexApplication *-- ActiveSerieContext
+UflexApplication *-- JointAngleCalculator
+UflexApplication *-- SafetyMonitor
+UflexApplication *-- SettleDetector
+UflexApplication ..> JointTargeting
+UflexApplication ..> MotionState
+UflexApplication ..> MotionPayloadMapper
+UflexApplication ..> SampleBatchPayload
+UflexApplication ..> BleMotionTelemetryMapper
+
+UflexRuntime <|-- SimUflexRuntime
+UflexRuntime <|-- HwUflexRuntime
+SimUflexRuntime *-- UflexDevice
+SimUflexRuntime *-- SimulatedImuArray
+SimUflexRuntime *-- GpioActiveBuzzer
+SimUflexRuntime *-- GpioRgbLed
+SimUflexRuntime *-- GpioVibrationMotor
+SimUflexRuntime *-- EdgeClient
+SimUflexRuntime *-- NoOpBleTransport
+HwUflexRuntime *-- UflexDevice
+HwUflexRuntime *-- Mpu9250ImuArray
+HwUflexRuntime *-- GpioActiveBuzzer
+HwUflexRuntime *-- GpioRgbLed
+HwUflexRuntime *-- EdgeClient
+HwUflexRuntime *-- BleTelemetryServer
+
+SimulatedImuArray o--> Imu
+Mpu9250ImuArray o--> Imu
+SimulatedImuArray *-- "3" SimImuBinding
+Mpu9250ImuArray *-- "3" HwImuBinding
+SimImuBinding o--> Imu
+HwImuBinding o--> Imu
+Mpu9250ImuArray ..> GyroBiasCalibrator
+GpioActiveBuzzer ..> ActiveBuzzer
+GpioRgbLed ..> RgbLed
+GpioVibrationMotor ..> VibrationMotor
+
+EdgeTransport <|.. EdgeClient
+BleTransport <|.. BleTelemetryServer
+BleTransport <|.. NoOpBleTransport
+EdgeClient *-- WifiConnection
+EdgeClient *-- RESTClient
+EdgeClient ..> SampleBatchSerializer
+EdgeClient ..> ParseActiveContext
+EdgeClient ..> ActiveSerieContext
+MotionPayloadMapper ..> MotionState
+MotionPayloadMapper ..> MotionPayload
+MotionPayloadSerializer ..> MotionPayload
+SampleBatchSerializer ..> SampleBatchPayload
+BleMotionTelemetryMapper ..> MotionState
+BleMotionTelemetryMapper ..> BleMotionTelemetry
+BleMotionTelemetrySerializer ..> BleMotionTelemetry
+MotionPayload *-- "3" RelativeAngle
+SampleBatchPayload o-- JointSample
+BleMotionTelemetry *-- "3" Quaternion
+
+CreateUflexRuntime --> UflexRuntime
+CreateUflexRuntime ..> SimUflexRuntime
+CreateUflexRuntime ..> HwUflexRuntime
+PlatformIoConfig ..> BuildConfig
+CreateUflexRuntime ..> BuildConfig
+MainEntry ..> CreateUflexRuntime
+MainEntry ..> UflexApplication
+
+@enduml
